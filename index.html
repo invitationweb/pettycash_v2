@@ -3,72 +3,52 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sistem Petty Cash</title>
+<title>Sistem Petty Cash - Firebase</title>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.0/jspdf.plugin.autotable.min.js"></script>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+
 <style>
+  /* CSS sama seperti sebelumnya */
   :root{--primary:#2563eb;--light:#f8fafc;--border:#e5e7eb;}
   *{box-sizing:border-box}
   body{background:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#1f2937;margin:0}
   
-  /* Loading Overlay */
-  .loading-overlay{
-    position:fixed;top:0;left:0;width:100%;height:100%;
-    background:rgba(255,255,255,.7);backdrop-filter:blur(2px);
-    display:none;align-items:center;justify-content:center;
-    z-index:9999;flex-direction:column;gap:12px
-  }
+  .loading-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(255,255,255,.7);backdrop-filter:blur(2px);display:none;align-items:center;justify-content:center;z-index:9999;flex-direction:column;gap:12px}
   .loading-overlay.show{display:flex}
-  .spinner{
-    width:44px;height:44px;border:3px solid var(--border);
-    border-top-color:var(--primary);border-radius:50%;
-    animation:spin .8s linear infinite
-  }
+  .spinner{width:44px;height:44px;border:3px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite}
   @keyframes spin{to{transform:rotate(360deg)}}
   .loading-text{color:#6b7280;font-size:14px}
-
-  /* Toast */
+  
   .toast-container{position:fixed;top:20px;right:20px;z-index:10000;display:flex;flex-direction:column;gap:8px}
-  .toast-msg{
-    background:#fff;border:1px solid var(--border);border-left:4px solid var(--primary);
-    border-radius:8px;padding:12px 16px;min-width:240px;box-shadow:0 4px 12px rgba(0,0,0,.08);
-    animation:slideIn .3s ease;font-size:14px
-  }
+  .toast-msg{background:#fff;border:1px solid var(--border);border-left:4px solid var(--primary);border-radius:8px;padding:12px 16px;min-width:240px;box-shadow:0 4px 12px rgba(0,0,0,.08);animation:slideIn .3s ease;font-size:14px}
   .toast-msg.success{border-left-color:#10b981}
   .toast-msg.error{border-left-color:#ef4444}
   @keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
-
-  /* Skeleton */
-  .skeleton{
-    background:linear-gradient(90deg,#f0f0f0 25%,#e0e0e0 50%,#f0f0f0 75%);
-    background-size:200% 100%;animation:shimmer 1.5s infinite;
-    border-radius:6px;height:20px;margin-bottom:8px
-  }
+  
+  .skeleton{background:linear-gradient(90deg,#f0f0f0 25%,#e0e0e0 50%,#f0f0f0 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:6px;height:20px;margin-bottom:8px}
   @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
-
-  /* Button Loading */
+  
   .btn-loading{position:relative;pointer-events:none;opacity:.7}
-  .btn-loading::after{
-    content:'';width:14px;height:14px;border:2px solid currentColor;
-    border-top-color:transparent;border-radius:50%;
-    animation:spin .6s linear infinite;margin-left:8px;
-    display:inline-block;vertical-align:middle
-  }
-
-  /* Login */
+  .btn-loading::after{content:'';width:14px;height:14px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spin .6s linear infinite;margin-left:8px;display:inline-block;vertical-align:middle}
+  
   .login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:#fff;padding:20px}
   .login-box{width:100%;max-width:380px;border:1px solid var(--border);border-radius:12px;padding:32px;box-shadow:0 2px 8px rgba(0,0,0,.04)}
   .login-box h3{margin:0 0 8px;font-weight:600}
-  .login-box p{color:#6b7280;margin-bottom:24px;font-size:14px}
   .form-control{border:1px solid var(--border);border-radius:8px;padding:10px 12px}
   .form-control:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(37,99,235,.1)}
   .btn-primary{background:var(--primary);border:none;border-radius:8px;padding:10px;font-weight:500}
   .btn-primary:hover{background:#1d4ed8}
   .btn-outline{background:#fff;border:1px solid var(--border);border-radius:8px;color:#374151}
   .btn-outline:hover{background:var(--light)}
-
+  
   .app{display:none;min-height:100vh}
   .sidebar{position:fixed;top:0;left:0;width:240px;height:100vh;background:#fff;border-right:1px solid var(--border);padding:20px 0;overflow-y:auto;z-index:100}
   .sidebar .brand{padding:0 20px 20px;border-bottom:1px solid var(--border);margin-bottom:16px}
@@ -77,38 +57,33 @@
   .nav-item{padding:10px 20px;cursor:pointer;display:flex;align-items:center;gap:10px;color:#374151;border-left:3px solid transparent;font-size:14px;transition:all .2s}
   .nav-item:hover{background:var(--light)}
   .nav-item.active{background:var(--light);border-left-color:var(--primary);color:var(--primary);font-weight:500}
-  .nav-item.loading{opacity:.5;pointer-events:none}
   .main{margin-left:240px;padding:24px}
   .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px}
   .topbar h4{margin:0;font-weight:600}
   .user-info{display:flex;align-items:center;gap:10px}
   .user-info .avatar{width:36px;height:36px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600}
-  .sync-indicator{font-size:11px;color:#10b981;display:inline-flex;align-items:center;gap:4px;margin-left:8px}
-  .sync-indicator.syncing{color:#f59e0b}
-  .sync-indicator .dot{width:6px;height:6px;border-radius:50%;background:currentColor;animation:pulse 1.5s infinite}
-  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
-
+  
   .card{border:1px solid var(--border);border-radius:12px;background:#fff;padding:20px;margin-bottom:16px}
   .card h6{margin:0 0 16px;font-weight:600}
   .stat{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px}
   .stat-item{border:1px solid var(--border);border-radius:10px;padding:16px;background:#fff}
   .stat-item small{color:#6b7280;font-size:12px}
   .stat-item h4{margin:6px 0 0;font-weight:600}
-
+  
   .table{font-size:14px}
   .table th{background:var(--light);font-weight:500;font-size:13px;color:#374151}
   .badge-status{padding:4px 10px;border-radius:12px;font-size:12px;font-weight:500}
   .badge-pending{background:#fef3c7;color:#92400e}
   .badge-approved{background:#d1fae5;color:#065f46}
   .badge-rejected{background:#fee2e2;color:#991b1b}
-
+  
   .item-row{border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px;background:var(--light)}
   .photo-preview{max-width:100px;max-height:100px;border-radius:6px;border:1px solid var(--border)}
-
+  
   .modal-backdrop{background:rgba(0,0,0,.4)}
   .modal-content{border-radius:12px;border:none}
   .menu-toggle{display:none;background:none;border:none;font-size:24px}
-
+  
   @media(max-width:768px){
     .sidebar{transform:translateX(-100%);transition:transform .3s;width:260px}
     .sidebar.show{transform:translateX(0)}
@@ -121,23 +96,21 @@
 </head>
 <body>
 
-<!-- Loading Overlay -->
 <div class="loading-overlay" id="loadingOverlay">
   <div class="spinner"></div>
   <div class="loading-text" id="loadingText">Memuat...</div>
 </div>
 
-<!-- Toast Container -->
 <div class="toast-container" id="toastContainer"></div>
 
-<!-- ============ LOGIN ============ -->
+<!-- LOGIN -->
 <div id="loginPage" class="login-wrap">
   <div class="login-box">
     <h3>Petty Cash</h3>
     <p>Silakan login untuk melanjutkan</p>
     <div class="mb-3">
-      <label class="form-label small">Username</label>
-      <input type="text" id="loginUser" class="form-control" placeholder="admin / staf">
+      <label class="form-label small">Email</label>
+      <input type="email" id="loginEmail" class="form-control" placeholder="admin@pettycash.com">
     </div>
     <div class="mb-3">
       <label class="form-label small">Password</label>
@@ -146,11 +119,11 @@
     <button class="btn btn-primary w-100" id="btnLogin" onclick="doLogin()">Login</button>
     <div id="loginMsg" class="text-danger small mt-2"></div>
     <hr class="my-3">
-    <small class="text-muted">Default: <b>admin</b> / admin123 &nbsp;|&nbsp; <b>staf</b> / staf123</small>
+    <small class="text-muted">Default: <b>admin@pettycash.com</b> / admin123</small>
   </div>
 </div>
 
-<!-- ============ APP ============ -->
+<!-- APP -->
 <div id="appPage" class="app">
   <aside class="sidebar" id="sidebar">
     <div class="brand">
@@ -170,9 +143,6 @@
           <i class="bi bi-list"></i>
         </button>
         <h4 id="pageTitle">Dashboard</h4>
-        <span class="sync-indicator" id="syncIndicator" style="display:none">
-          <span class="dot"></span> <span id="syncText">Tersinkron</span>
-        </span>
       </div>
       <div class="user-info">
         <div class="avatar" id="userAvatar">A</div>
@@ -190,199 +160,194 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-// ⚠️ GANTI URL INI
-const ENDPOINT = 'https://script.google.com/macros/s/AKfycbzxxDnfcC_5v7aSmnnOw2eOIwjAATDcPzolAaigvw3df9QYqg-J3Eg8BgKpnL5aSbM9/exec';
+// ============ FIREBASE CONFIG ============
+// GANTI DENGAN CONFIG DARI FIREBASE CONSOLE
+const firebaseConfig = {
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  const firebaseConfig = {
+  apiKey: "AIzaSyAurrlP-bkzVIk3fT6ZjbAaHT1DfY5a4ec",
+  authDomain: "datasaya-a4a14.firebaseapp.com",
+  projectId: "datasaya-a4a14",
+  storageBucket: "datasaya-a4a14.firebasestorage.app",
+  messagingSenderId: "265322259072",
+  appId: "1:265322259072:web:4bd9f807d745d8c8bf3c65"
+};
+};
 
-let currentUser=null;
-let cacheData={};
-let syncTimer=null;
-const CACHE_DURATION = 5 * 60 * 1000; // 5 menit
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+const storage = firebase.storage();
 
-// ============ LOADING HELPERS ============
+// ============ GLOBAL ============
+let currentUser = null;
+let cacheData = {};
+
 function showLoading(text='Memuat...'){
-  document.getElementById('loadingText').innerText=text;
+  document.getElementById('loadingText').innerText = text;
   document.getElementById('loadingOverlay').classList.add('show');
 }
+
 function hideLoading(){
   document.getElementById('loadingOverlay').classList.remove('show');
 }
-function setBtnLoading(btn,loading){
+
+function setBtnLoading(btn, loading){
   if(loading){
-    btn.dataset.originalText=btn.innerHTML;
+    btn.dataset.originalText = btn.innerHTML;
     btn.classList.add('btn-loading');
-    btn.disabled=true;
-  }else{
+    btn.disabled = true;
+  } else {
     btn.classList.remove('btn-loading');
-    btn.disabled=false;
-    if(btn.dataset.originalText) btn.innerHTML=btn.dataset.originalText;
+    btn.disabled = false;
+    if(btn.dataset.originalText) btn.innerHTML = btn.dataset.originalText;
   }
 }
-function setSyncState(state,text='Tersinkron'){
-  const el=document.getElementById('syncIndicator');
-  el.style.display='inline-flex';
-  el.classList.toggle('syncing',state==='syncing');
-  document.getElementById('syncText').innerText=text;
-}
 
-// ============ TOAST ============
-function toast(msg,type='info'){
-  const div=document.createElement('div');
-  div.className='toast-msg '+type;
-  div.innerHTML=`<i class="bi bi-${type==='success'?'check-circle':type==='error'?'x-circle':'info-circle'}"></i> ${msg}`;
+function toast(msg, type='info'){
+  const div = document.createElement('div');
+  div.className = 'toast-msg ' + type;
+  const icon = type === 'success' ? 'check-circle' : type === 'error' ? 'x-circle' : 'info-circle';
+  div.innerHTML = `<i class="bi bi-${icon}"></i> ${msg}`;
   document.getElementById('toastContainer').appendChild(div);
-  setTimeout(()=>{div.style.opacity='0';setTimeout(()=>div.remove(),300)},3000);
+  setTimeout(() => { div.style.opacity = '0'; setTimeout(() => div.remove(), 300); }, 3000);
 }
 
-// ============ CACHE ============
-function setCache(key,data){
-  try{
-    localStorage.setItem('pc_'+key,JSON.stringify({data,time:Date.now()}));
-  }catch(e){}
-}
-function getCache(key){
-  try{
-    const raw=localStorage.getItem('pc_'+key);
-    if(!raw) return null;
-    const obj=JSON.parse(raw);
-    if(Date.now()-obj.time>CACHE_DURATION) return null;
-    return obj.data;
-  }catch(e){return null}
+function fmt(n){ return (n || 0).toLocaleString('id-ID'); }
+
+function showSkeleton(count=3){
+  return `<div class="card">${Array(count).fill('<div class="skeleton"></div>').join('')}</div>`;
 }
 
-// ============ API ============
-async function api(mode,payload={},showLoad=true){
-  if(showLoad) showLoading('Menghubungkan ke server...');
-  setSyncState('syncing','Menyinkronkan...');
-  try{
-    const res=await fetch(ENDPOINT,{
-      method:'POST',
-      body:JSON.stringify({mode,...payload})
+// ============ AUTH ============
+auth.onAuthStateChanged(user => {
+  if(user){
+    // Get user data from Firestore
+    db.collection('users').doc(user.uid).get().then(doc => {
+      if(doc.exists){
+        currentUser = { uid: user.uid, ...doc.data() };
+        showApp();
+      } else {
+        logout();
+      }
+    }).catch(err => {
+      console.error(err);
+      toast('Gagal load data user','error');
     });
-    const data=await res.json();
-    setSyncState('ok','Tersinkron');
-    if(showLoad) hideLoading();
-    return data;
-  }catch(err){
-    setSyncState('error','Gagal sinkron');
-    if(showLoad) hideLoading();
-    toast('Koneksi gagal: '+err.message,'error');
-    return {ok:false,msg:err.message};
+  } else {
+    document.getElementById('loginPage').style.display = 'flex';
+    document.getElementById('appPage').style.display = 'none';
   }
-}
+});
 
-// ============ LOGIN ============
 async function doLogin(){
-  const u=document.getElementById('loginUser').value.trim();
-  const p=document.getElementById('loginPass').value;
-  const btn=document.getElementById('btnLogin');
-  if(!u||!p){document.getElementById('loginMsg').innerText='Lengkapi data';return}
-  setBtnLoading(btn,true);
-  const r=await api('login',{username:u,password:p},false);
-  setBtnLoading(btn,false);
-  if(r.ok){
-    currentUser=r.data;
-    localStorage.setItem('pc_user',JSON.stringify(r.data));
+  const email = document.getElementById('loginEmail').value.trim();
+  const pass = document.getElementById('loginPass').value;
+  const btn = document.getElementById('btnLogin');
+  
+  if(!email || !pass){ document.getElementById('loginMsg').innerText = 'Lengkapi data'; return; }
+  
+  setBtnLoading(btn, true);
+  try {
+    await auth.signInWithEmailAndPassword(email, pass);
     toast('Login berhasil','success');
-    showApp();
-  }else{
-    document.getElementById('loginMsg').innerText=r.msg||'Login gagal';
-    toast(r.msg||'Login gagal','error');
+  } catch(err){
+    document.getElementById('loginMsg').innerText = err.message;
+    toast(err.message,'error');
+  } finally {
+    setBtnLoading(btn, false);
   }
 }
 
 function logout(){
-  localStorage.removeItem('pc_user');
-  if(syncTimer) clearInterval(syncTimer);
+  auth.signOut();
   location.reload();
 }
 
 function showApp(){
-  document.getElementById('loginPage').style.display='none';
-  document.getElementById('appPage').style.display='block';
-  document.getElementById('userName').innerText=currentUser.nama;
-  document.getElementById('userRole').innerText=currentUser.role;
-  document.getElementById('userAvatar').innerText=currentUser.nama.charAt(0).toUpperCase();
-  document.getElementById('roleLabel').innerText=currentUser.role.toUpperCase();
+  document.getElementById('loginPage').style.display = 'none';
+  document.getElementById('appPage').style.display = 'block';
+  document.getElementById('userName').innerText = currentUser.nama;
+  document.getElementById('userRole').innerText = currentUser.role;
+  document.getElementById('userAvatar').innerText = currentUser.nama.charAt(0).toUpperCase();
+  document.getElementById('roleLabel').innerText = currentUser.role.toUpperCase();
   buildMenu();
-  navigate(currentUser.role==='admin'?'admin_dashboard':'staf_dashboard');
-  
-  // Auto-refresh untuk admin
-  if(currentUser.role==='admin'){
-    if(syncTimer) clearInterval(syncTimer);
-    syncTimer=setInterval(()=>{
-      const active=document.querySelector('.nav-item.active');
-      if(active && active.dataset.id==='admin_dashboard') renderAdminDashboard(true);
-      if(active && active.dataset.id==='admin_pengajuan') renderAdminPengajuan(true);
-    },30000);
-  }
+  navigate(currentUser.role === 'admin' ? 'admin_dashboard' : 'staf_dashboard');
 }
 
 function buildMenu(){
-  const menus=currentUser.role==='admin'?[
+  const menus = currentUser.role === 'admin' ? [
     {id:'admin_dashboard',icon:'bi-speedometer2',label:'Dashboard'},
     {id:'admin_pengajuan',icon:'bi-check2-square',label:'Pengajuan'},
     {id:'admin_kategori',icon:'bi-tags',label:'Kategori'},
     {id:'admin_modal',icon:'bi-cash-stack',label:'Modal'},
     {id:'admin_toko',icon:'bi-shop',label:'Toko'},
     {id:'admin_karyawan',icon:'bi-people',label:'Karyawan & Admin'},
-  ]:[
+  ] : [
     {id:'staf_dashboard',icon:'bi-speedometer2',label:'Dashboard'},
     {id:'staf_pengajuan',icon:'bi-plus-circle',label:'Pengajuan Baru'},
     {id:'staf_riwayat',icon:'bi-clock-history',label:'Riwayat'},
   ];
-  document.getElementById('navMenu').innerHTML=menus.map(m=>
+  document.getElementById('navMenu').innerHTML = menus.map(m => 
     `<div class="nav-item" data-id="${m.id}" onclick="navigate('${m.id}')"><i class="bi ${m.icon}"></i> ${m.label}</div>`
   ).join('');
 }
 
 function navigate(id){
-  document.querySelectorAll('.nav-item').forEach(n=>{
-    n.classList.toggle('active',n.dataset.id===id);
-  });
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.id === id));
   document.getElementById('sidebar').classList.remove('show');
-  const titles={
-    admin_dashboard:'Dashboard Admin',admin_pengajuan:'Kelola Pengajuan',admin_kategori:'Kategori',
-    admin_modal:'Modal Kas',admin_toko:'Daftar Toko',admin_karyawan:'Karyawan & Admin',
-    staf_dashboard:'Dashboard Staf',staf_pengajuan:'Pengajuan Baru',staf_riwayat:'Riwayat Pengajuan'
+  const titles = {
+    admin_dashboard:'Dashboard Admin', admin_pengajuan:'Kelola Pengajuan', admin_kategori:'Kategori',
+    admin_modal:'Modal Kas', admin_toko:'Daftar Toko', admin_karyawan:'Karyawan & Admin',
+    staf_dashboard:'Dashboard Staf', staf_pengajuan:'Pengajuan Baru', staf_riwayat:'Riwayat Pengajuan'
   };
-  document.getElementById('pageTitle').innerText=titles[id];
-  const fn={
-    admin_dashboard:renderAdminDashboard,admin_pengajuan:renderAdminPengajuan,admin_kategori:renderAdminKategori,
-    admin_modal:renderAdminModal,admin_toko:renderAdminToko,admin_karyawan:renderAdminKaryawan,
-    staf_dashboard:renderStafDashboard,staf_pengajuan:renderStafPengajuan,staf_riwayat:renderStafRiwayat
+  document.getElementById('pageTitle').innerText = titles[id];
+  const fn = {
+    admin_dashboard:renderAdminDashboard, admin_pengajuan:renderAdminPengajuan, admin_kategori:renderAdminKategori,
+    admin_modal:renderAdminModal, admin_toko:renderAdminToko, admin_karyawan:renderAdminKaryawan,
+    staf_dashboard:renderStafDashboard, staf_pengajuan:renderStafPengajuan, staf_riwayat:renderStafRiwayat
   };
   fn[id]();
 }
 
-// Skeleton loader
-function showSkeleton(count=3){
-  return `<div class="card">${Array(count).fill('<div class="skeleton"></div>').join('')}</div>`;
-}
-
-// ============ STAF ============
+// ============ STAF FUNCTIONS ============
 async function renderStafDashboard(){
-  document.getElementById('content').innerHTML=showSkeleton(4);
-  const r=await api('staf_dashboard',{user_id:currentUser.id});
-  if(!r.ok){toast(r.msg,'error');return}
-  const d=r.data;
-  document.getElementById('content').innerHTML=`
-    <div class="stat">
-      <div class="stat-item"><small>Total Pengajuan</small><h4>${d.total}</h4></div>
-      <div class="stat-item"><small>Pending</small><h4>${d.pending}</h4></div>
-      <div class="stat-item"><small>Disetujui</small><h4>${d.approved}</h4></div>
-      <div class="stat-item"><small>Total Nominal</small><h4>Rp ${fmt(d.nominal)}</h4></div>
-    </div>
-    <div class="card">
-      <h6>Pengajuan Terbaru</h6>
-      <div class="table-responsive"><table class="table">
-        <thead><tr><th>Tanggal</th><th>Total</th><th>Status</th></tr></thead>
-        <tbody>${d.recent.map(p=>`<tr><td>${p.tanggal}</td><td>Rp ${fmt(p.total)}</td><td><span class="badge-status badge-${p.status}">${p.status}</span></td></tr>`).join('')||'<tr><td colspan="3" class="text-center text-muted">Belum ada</td></tr>'}</tbody>
-      </table></div>
-    </div>`;
+  document.getElementById('content').innerHTML = showSkeleton(4);
+  try {
+    const snapshot = await db.collection('pengajuan').where('user_id','==',currentUser.uid).get();
+    let pending=0, approved=0, nominal=0, recent=[];
+    snapshot.forEach(doc => {
+      const p = doc.data();
+      if(p.status === 'pending') pending++;
+      if(p.status === 'approved'){ approved++; nominal += p.total; }
+      recent.push({ id: doc.id, ...p });
+    });
+    recent = recent.sort((a,b) => b.created_at - a.created_at).slice(0,5);
+    
+    document.getElementById('content').innerHTML = `
+      <div class="stat">
+        <div class="stat-item"><small>Total Pengajuan</small><h4>${snapshot.size}</h4></div>
+        <div class="stat-item"><small>Pending</small><h4>${pending}</h4></div>
+        <div class="stat-item"><small>Disetujui</small><h4>${approved}</h4></div>
+        <div class="stat-item"><small>Total Nominal</small><h4>Rp ${fmt(nominal)}</h4></div>
+      </div>
+      <div class="card">
+        <h6>Pengajuan Terbaru</h6>
+        <div class="table-responsive"><table class="table">
+          <thead><tr><th>Tanggal</th><th>Total</th><th>Status</th></tr></thead>
+          <tbody>${recent.map(p => `<tr><td>${p.tanggal}</td><td>Rp ${fmt(p.total)}</td><td><span class="badge-status badge-${p.status}">${p.status}</span></td></tr>`).join('') || '<tr><td colspan="3" class="text-center text-muted">Belum ada</td></tr>'}</tbody>
+        </table></div>
+      </div>`;
+  } catch(err){
+    console.error(err);
+    toast('Gagal load dashboard','error');
+  }
 }
 
 function renderStafPengajuan(){
-  document.getElementById('content').innerHTML=`
+  document.getElementById('content').innerHTML = `
     <div class="card">
       <div class="row g-2 mb-3">
         <div class="col-md-4"><label class="small">Tanggal</label><input type="date" id="fTanggal" class="form-control" value="${new Date().toISOString().slice(0,10)}"></div>
@@ -397,23 +362,23 @@ function renderStafPengajuan(){
         <h5 class="mb-0">Total: Rp <span id="totalAll">0</span></h5>
         <div>
           <button class="btn btn-outline" onclick="resetForm()">Reset</button>
-          <button class="btn btn-primary" id="btnSubmit" onclick="submitPengajuan(this)"><i class="bi bi-send"></i> Ajukan</button>
+          <button class="btn btn-primary" id="btnSubmit" onclick="submitPengajuan(this)">Ajukan</button>
         </div>
       </div>
     </div>`;
-  loadTokoSelect('fToko');
+  loadTokoSelect();
   loadKategoriSelect();
   addItemRow();
 }
 
-let itemCounter=0;
+let itemCounter = 0;
 function addItemRow(){
   itemCounter++;
-  const id=itemCounter;
-  const div=document.createElement('div');
-  div.className='item-row';
-  div.id='item-'+id;
-  div.innerHTML=`
+  const id = itemCounter;
+  const div = document.createElement('div');
+  div.className = 'item-row';
+  div.id = 'item-'+id;
+  div.innerHTML = `
     <div class="row g-2">
       <div class="col-md-4"><label class="small">Nama Barang</label><input type="text" class="form-control form-item" data-f="nama"></div>
       <div class="col-md-3"><label class="small">Kategori</label><select class="form-control form-item sel-kategori" data-f="kategori"></select></div>
@@ -421,289 +386,396 @@ function addItemRow(){
       <div class="col-md-2"><label class="small">Foto Bon</label><input type="file" accept="image/*" class="form-control form-item" data-f="foto" onchange="previewFoto(this,${id})"></div>
     </div>
     <div id="preview-${id}" class="mt-2"></div>
+    <div id="progress-${id}" class="progress mt-2" style="display:none"><div class="progress-bar progress-bar-striped progress-bar-animated" style="width:0%"></div></div>
     <button class="btn btn-sm btn-outline mt-2 text-danger" onclick="document.getElementById('item-${id}').remove();calcTotal()"><i class="bi bi-trash"></i> Hapus</button>`;
   document.getElementById('itemsList').appendChild(div);
   fillKategoriSelect(div.querySelector('.sel-kategori'));
 }
 
-function previewFoto(inp,id){
-  const f=inp.files[0];if(!f)return;
-  if(f.size>1024*1024){toast('Ukuran foto maks 1MB','error');inp.value='';return}
-  const r=new FileReader();
-  r.onload=e=>{
-    inp.dataset.base64=e.target.result;
-    document.getElementById('preview-'+id).innerHTML=`<img src="${e.target.result}" class="photo-preview">`;
-  };
-  r.readAsDataURL(f);
+async function previewFoto(inp, id){
+  const f = inp.files[0];
+  if(!f) return;
+  if(f.size > 2*1024*1024){ toast('Ukuran foto maks 2MB','error'); inp.value=''; return; }
+  
+  const progressEl = document.getElementById('progress-'+id);
+  const progressBar = progressEl.querySelector('.progress-bar');
+  progressEl.style.display = 'block';
+  
+  try {
+    // Upload to Firebase Storage
+    const ref = storage.ref(`bon/${currentUser.uid}/${Date.now()}_${f.name}`);
+    const task = ref.put(f);
+    
+    task.on('state_changed', 
+      snapshot => {
+        const percent = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+        progressBar.style.width = percent + '%';
+      },
+      error => {
+        toast('Upload gagal: '+error.message,'error');
+        progressEl.style.display = 'none';
+      },
+      async () => {
+        const url = await task.snapshot.ref.getDownloadURL();
+        inp.dataset.url = url;
+        document.getElementById('preview-'+id).innerHTML = `<img src="${url}" class="photo-preview">`;
+        progressEl.style.display = 'none';
+        toast('Foto berhasil diupload','success');
+      }
+    );
+  } catch(err){
+    toast('Upload error: '+err.message,'error');
+    progressEl.style.display = 'none';
+  }
 }
 
 function calcTotal(){
-  let t=0;
-  document.querySelectorAll('.item-row').forEach(r=>{
-    const v=parseFloat(r.querySelector('[data-f="nominal"]').value)||0;
-    t+=v;
+  let t = 0;
+  document.querySelectorAll('.item-row').forEach(r => {
+    const v = parseFloat(r.querySelector('[data-f="nominal"]').value) || 0;
+    t += v;
   });
-  document.getElementById('totalAll').innerText=fmt(t);
+  document.getElementById('totalAll').innerText = fmt(t);
 }
 
 async function submitPengajuan(btn){
-  const items=[];
-  document.querySelectorAll('.item-row').forEach(r=>{
-    const nama=r.querySelector('[data-f="nama"]').value;
-    const kategori=r.querySelector('[data-f="kategori"]').value;
-    const nominal=parseFloat(r.querySelector('[data-f="nominal"]').value)||0;
-    const foto=r.querySelector('[data-f="foto"]').dataset.base64||'';
-    if(nama)items.push({nama,kategori,nominal,foto});
+  const items = [];
+  let valid = true;
+  
+  document.querySelectorAll('.item-row').forEach(r => {
+    const nama = r.querySelector('[data-f="nama"]').value;
+    const kategori = r.querySelector('[data-f="kategori"]').value;
+    const nominal = parseFloat(r.querySelector('[data-f="nominal"]').value) || 0;
+    const foto = r.querySelector('[data-f="foto"]').dataset.url || '';
+    if(nama) items.push({ nama_barang: nama, kategori, nominal, foto });
   });
-  if(items.length===0){toast('Tambahkan minimal 1 item','error');return}
-  const payload={
-    user_id:currentUser.id,
-    tanggal:document.getElementById('fTanggal').value,
-    toko:document.getElementById('fToko').value,
-    nama_pengaju:document.getElementById('fNama').value,
-    items
-  };
-  setBtnLoading(btn,true);
-  const r=await api('add_pengajuan',payload);
-  setBtnLoading(btn,false);
-  if(r.ok){
+  
+  if(items.length === 0){ toast('Tambahkan minimal 1 item','error'); return; }
+  if(!document.getElementById('fToko').value){ toast('Pilih toko','error'); return; }
+  
+  const total = items.reduce((s,i) => s + i.nominal, 0);
+  
+  setBtnLoading(btn, true);
+  try {
+    const docRef = await db.collection('pengajuan').add({
+      user_id: currentUser.uid,
+      nama_pengaju: currentUser.nama,
+      toko: document.getElementById('fToko').value,
+      tanggal: document.getElementById('fTanggal').value,
+      items: items,
+      total: total,
+      status: 'pending',
+      catatan_admin: '',
+      created_at: firebase.firestore.FieldValue.serverTimestamp()
+    });
     toast('Pengajuan berhasil dikirim!','success');
     resetForm();
     navigate('staf_riwayat');
-  }else toast(r.msg,'error');
+  } catch(err){
+    console.error(err);
+    toast('Gagal submit: '+err.message,'error');
+  } finally {
+    setBtnLoading(btn, false);
+  }
 }
 
-function resetForm(){itemCounter=0;renderStafPengajuan()}
+function resetForm(){ itemCounter = 0; renderStafPengajuan(); }
 
 async function renderStafRiwayat(){
-  document.getElementById('content').innerHTML=showSkeleton(5);
-  const r=await api('get_pengajuan',{user_id:currentUser.id});
-  if(!r.ok){toast(r.msg,'error');return}
-  cacheData.pengajuan=r.data;
-  document.getElementById('content').innerHTML=`
-    <div class="card">
-      <div class="row g-2 mb-3">
-        <div class="col-md-3"><input type="text" id="fSearch" class="form-control" placeholder="Cari..." oninput="filterRiwayat()"></div>
-        <div class="col-md-3"><select id="fStatus" class="form-control" onchange="filterRiwayat()">
-          <option value="">Semua Status</option><option>pending</option><option>approved</option><option>rejected</option>
-        </select></div>
-        <div class="col-md-3"><input type="date" id="fFrom" class="form-control" onchange="filterRiwayat()"></div>
-        <div class="col-md-3"><input type="date" id="fTo" class="form-control" onchange="filterRiwayat()"></div>
-      </div>
-      <div id="riwayatTable"></div>
-    </div>`;
-  filterRiwayat();
+  document.getElementById('content').innerHTML = showSkeleton(5);
+  try {
+    const snapshot = await db.collection('pengajuan').where('user_id','==',currentUser.uid).orderBy('created_at','desc').get();
+    cacheData.pengajuan = [];
+    snapshot.forEach(doc => cacheData.pengajuan.push({ id: doc.id, ...doc.data() }));
+    
+    document.getElementById('content').innerHTML = `
+      <div class="card">
+        <div class="row g-2 mb-3">
+          <div class="col-md-3"><input type="text" id="fSearch" class="form-control" placeholder="Cari..." oninput="filterRiwayat()"></div>
+          <div class="col-md-3"><select id="fStatus" class="form-control" onchange="filterRiwayat()">
+            <option value="">Semua Status</option><option>pending</option><option>approved</option><option>rejected</option>
+          </select></div>
+          <div class="col-md-3"><input type="date" id="fFrom" class="form-control" onchange="filterRiwayat()"></div>
+          <div class="col-md-3"><input type="date" id="fTo" class="form-control" onchange="filterRiwayat()"></div>
+        </div>
+        <div id="riwayatTable"></div>
+      </div>`;
+    filterRiwayat();
+  } catch(err){
+    console.error(err);
+    toast('Gagal load riwayat','error');
+  }
 }
 
 function filterRiwayat(){
-  const s=document.getElementById('fSearch').value.toLowerCase();
-  const st=document.getElementById('fStatus').value;
-  const from=document.getElementById('fFrom').value;
-  const to=document.getElementById('fTo').value;
-  let data=cacheData.pengajuan.filter(p=>{
-    if(s&&!p.toko.toLowerCase().includes(s)&&!p.nama_pengaju.toLowerCase().includes(s))return false;
-    if(st&&p.status!==st)return false;
-    if(from&&p.tanggal<from)return false;
-    if(to&&p.tanggal>to)return false;
+  const s = document.getElementById('fSearch').value.toLowerCase();
+  const st = document.getElementById('fStatus').value;
+  const from = document.getElementById('fFrom').value;
+  const to = document.getElementById('fTo').value;
+  
+  let data = cacheData.pengajuan.filter(p => {
+    if(s && !p.toko.toLowerCase().includes(s) && !p.nama_pengaju.toLowerCase().includes(s)) return false;
+    if(st && p.status !== st) return false;
+    if(from && p.tanggal < from) return false;
+    if(to && p.tanggal > to) return false;
     return true;
   });
-  document.getElementById('riwayatTable').innerHTML=`
+  
+  document.getElementById('riwayatTable').innerHTML = `
     <div class="table-responsive"><table class="table">
       <thead><tr><th>Tanggal</th><th>Toko</th><th>Pengaju</th><th>Total</th><th>Status</th><th>Aksi</th></tr></thead>
-      <tbody>${data.map(p=>`
+      <tbody>${data.map(p => `
         <tr>
           <td>${p.tanggal}</td><td>${p.toko}</td><td>${p.nama_pengaju}</td>
           <td>Rp ${fmt(p.total)}</td>
           <td><span class="badge-status badge-${p.status}">${p.status}</span></td>
           <td>
-            <button class="btn btn-sm btn-outline" onclick="viewPengajuan(${p.id})"><i class="bi bi-eye"></i></button>
-            <button class="btn btn-sm btn-outline" onclick="printPDF(${p.id})"><i class="bi bi-printer"></i></button>
-            ${p.status==='pending'?`<button class="btn btn-sm btn-outline text-danger" onclick="deletePengajuan(${p.id})"><i class="bi bi-trash"></i></button>`:''}
+            <button class="btn btn-sm btn-outline" onclick="viewPengajuan('${p.id}')"><i class="bi bi-eye"></i></button>
+            <button class="btn btn-sm btn-outline" onclick="printPDF('${p.id}')"><i class="bi bi-printer"></i></button>
+            ${p.status === 'pending' ? `<button class="btn btn-sm btn-outline text-danger" onclick="deletePengajuan('${p.id}')"><i class="bi bi-trash"></i></button>` : ''}
           </td>
-        </tr>`).join('')||'<tr><td colspan="6" class="text-center text-muted">Tidak ada data</td></tr>'}</tbody>
+        </tr>`).join('') || '<tr><td colspan="6" class="text-center text-muted">Tidak ada data</td></tr>'}</tbody>
     </table></div>`;
 }
 
 async function viewPengajuan(id){
   showLoading('Memuat detail...');
-  const r=await api('get_pengajuan_detail',{id},false);
-  hideLoading();
-  if(!r.ok){toast(r.msg,'error');return}
-  const p=r.data;
-  document.getElementById('modalContent').innerHTML=`
-    <div class="modal-header"><h5 class="modal-title">Detail Pengajuan #${p.id}</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
-    <div class="modal-body">
-      <p><b>Tanggal:</b> ${p.tanggal} | <b>Toko:</b> ${p.toko} | <b>Pengaju:</b> ${p.nama_pengaju}</p>
-      <p><b>Status:</b> <span class="badge-status badge-${p.status}">${p.status}</span></p>
-      <table class="table"><thead><tr><th>Barang</th><th>Kategori</th><th>Nominal</th><th>Foto</th></tr></thead>
-      <tbody>${p.items.map(i=>`<tr><td>${i.nama_barang}</td><td>${i.kategori}</td><td>Rp ${fmt(i.nominal)}</td><td>${i.foto?`<img src="${i.foto}" class="photo-preview">`:'-'}</td></tr>`).join('')}</tbody></table>
-      <h5>Total: Rp ${fmt(p.total)}</h5>
-      ${p.catatan_admin?`<div class="alert alert-info mt-2"><b>Catatan Admin:</b> ${p.catatan_admin}</div>`:''}
-    </div>`;
-  new bootstrap.Modal(document.getElementById('modal')).show();
+  try {
+    const doc = await db.collection('pengajuan').doc(id).get();
+    const p = { id: doc.id, ...doc.data() };
+    
+    document.getElementById('modalContent').innerHTML = `
+      <div class="modal-header"><h5 class="modal-title">Detail Pengajuan #${id.substr(0,8)}</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <p><b>Tanggal:</b> ${p.tanggal} | <b>Toko:</b> ${p.toko} | <b>Pengaju:</b> ${p.nama_pengaju}</p>
+        <p><b>Status:</b> <span class="badge-status badge-${p.status}">${p.status}</span></p>
+        <table class="table"><thead><tr><th>Barang</th><th>Kategori</th><th>Nominal</th><th>Foto</th></tr></thead>
+        <tbody>${p.items.map(i => `<tr><td>${i.nama_barang}</td><td>${i.kategori}</td><td>Rp ${fmt(i.nominal)}</td><td>${i.foto ? `<a href="${i.foto}" target="_blank">Lihat</a>` : '-'}</td></tr>`).join('')}</tbody></table>
+        <h5>Total: Rp ${fmt(p.total)}</h5>
+        ${p.catatan_admin ? `<div class="alert alert-info mt-2"><b>Catatan Admin:</b> ${p.catatan_admin}</div>` : ''}
+      </div>`;
+    new bootstrap.Modal(document.getElementById('modal')).show();
+  } catch(err){
+    toast('Gagal load detail','error');
+  } finally {
+    hideLoading();
+  }
 }
 
 async function deletePengajuan(id){
-  if(!confirm('Hapus pengajuan ini?'))return;
+  if(!confirm('Hapus pengajuan ini?')) return;
   showLoading('Menghapus...');
-  const r=await api('delete_pengajuan',{id},false);
-  hideLoading();
-  if(r.ok){toast('Pengajuan dihapus','success');renderStafRiwayat()}
-  else toast(r.msg,'error');
+  try {
+    await db.collection('pengajuan').doc(id).delete();
+    toast('Pengajuan dihapus','success');
+    renderStafRiwayat();
+  } catch(err){
+    toast('Gagal hapus: '+err.message,'error');
+  } finally {
+    hideLoading();
+  }
 }
 
 function printPDF(id){
-  showLoading('Membuat PDF...');
-  api('get_pengajuan_detail',{id},false).then(r=>{
-    hideLoading();
-    if(!r.ok){toast(r.msg,'error');return}
-    const d=r.data;
-    const {jsPDF}=window.jspdf;
-    const doc=new jsPDF();
-    doc.setFontSize(16);doc.text('FORM PETTY CASH',14,20);
-    doc.setFontSize(10);
-    doc.text(`Tanggal: ${d.tanggal}`,14,32);
-    doc.text(`Toko: ${d.toko}`,14,38);
-    doc.text(`Pengaju: ${d.nama_pengaju}`,14,44);
-    doc.autoTable({
-      startY:52,
-      head:[['No','Nama Barang','Kategori','Nominal']],
-      body:d.items.map((i,idx)=>[idx+1,i.nama_barang,i.kategori,'Rp '+fmt(i.nominal)])
-    });
-    const y=doc.lastAutoTable.finalY+10;
-    doc.setFontSize(12);doc.text(`TOTAL: Rp ${fmt(d.total)}`,14,y);
-    doc.save(`PettyCash-${d.tanggal}-${d.toko}.pdf`);
-    toast('PDF berhasil dibuat','success');
+  const p = cacheData.pengajuan.find(x => x.id === id);
+  if(!p){ toast('Data tidak ditemukan','error'); return; }
+  
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  doc.setFontSize(16); doc.text('FORM PETTY CASH', 14, 20);
+  doc.setFontSize(10);
+  doc.text(`Tanggal: ${p.tanggal}`, 14, 32);
+  doc.text(`Toko: ${p.toko}`, 14, 38);
+  doc.text(`Pengaju: ${p.nama_pengaju}`, 14, 44);
+  doc.autoTable({
+    startY: 52,
+    head: [['No','Nama Barang','Kategori','Nominal']],
+    body: p.items.map((i,idx) => [idx+1, i.nama_barang, i.kategori, 'Rp '+fmt(i.nominal)])
   });
+  const y = doc.lastAutoTable.finalY + 10;
+  doc.setFontSize(12); doc.text(`TOTAL: Rp ${fmt(p.total)}`, 14, y);
+  doc.save(`PettyCash-${p.tanggal}-${p.toko}.pdf`);
+  toast('PDF berhasil dibuat','success');
 }
 
-// ============ ADMIN ============
-async function renderAdminDashboard(silent=false){
-  if(!silent) document.getElementById('content').innerHTML=showSkeleton(4);
-  const r=await api('admin_dashboard',{},!silent);
-  if(!r.ok){if(!silent)toast(r.msg,'error');return}
-  const d=r.data;
-  document.getElementById('content').innerHTML=`
-    <div class="stat">
-      <div class="stat-item"><small>Pengajuan Pending</small><h4>${d.pending}</h4></div>
-      <div class="stat-item"><small>Total Approved</small><h4>${d.approved}</h4></div>
-      <div class="stat-item"><small>Modal Tersedia</small><h4>Rp ${fmt(d.modal)}</h4></div>
-      <div class="stat-item"><small>Total Karyawan</small><h4>${d.karyawan}</h4></div>
-    </div>
-    <div class="card">
-      <h6>Pengajuan Pending Terbaru</h6>
-      <div class="table-responsive"><table class="table">
-        <thead><tr><th>Tanggal</th><th>Toko</th><th>Pengaju</th><th>Total</th><th>Aksi</th></tr></thead>
-        <tbody>${d.pendingList.map(p=>`<tr><td>${p.tanggal}</td><td>${p.toko}</td><td>${p.nama_pengaju}</td><td>Rp ${fmt(p.total)}</td><td><button class="btn btn-sm btn-primary" onclick="navigate('admin_pengajuan')">Proses</button></td></tr>`).join('')||'<tr><td colspan="5" class="text-center text-muted">Tidak ada</td></tr>'}</tbody>
-      </table></div>
-    </div>`;
-}
-
-async function renderAdminPengajuan(silent=false){
-  if(!silent) document.getElementById('content').innerHTML=showSkeleton(5);
-  const r=await api('get_pengajuan_all',{},!silent);
-  if(!r.ok){if(!silent)toast(r.msg,'error');return}
-  cacheData.allPengajuan=r.data;
-  if(silent){
-    // Silent update - hanya refresh tabel
-    const search=document.getElementById('fSearch2');
-    if(!search){
-      document.getElementById('content').innerHTML=`
-        <div class="card">
-          <div class="row g-2 mb-3">
-            <div class="col-md-4"><input type="text" id="fSearch2" class="form-control" placeholder="Cari..." oninput="filterAdmin()"></div>
-            <div class="col-md-3"><select id="fStatus2" class="form-control" onchange="filterAdmin()">
-              <option value="">Semua</option><option>pending</option><option>approved</option><option>rejected</option>
-            </select></div>
-          </div>
-          <div id="adminTable"></div>
-        </div>`;
-    }
-    filterAdmin();
-    return;
-  }
-  document.getElementById('content').innerHTML=`
-    <div class="card">
-      <div class="row g-2 mb-3">
-        <div class="col-md-4"><input type="text" id="fSearch2" class="form-control" placeholder="Cari toko/pengaju..." oninput="filterAdmin()"></div>
-        <div class="col-md-3"><select id="fStatus2" class="form-control" onchange="filterAdmin()">
-          <option value="">Semua</option><option>pending</option><option>approved</option><option>rejected</option>
-        </select></div>
+// ============ ADMIN FUNCTIONS ============
+async function renderAdminDashboard(){
+  document.getElementById('content').innerHTML = showSkeleton(4);
+  try {
+    const pengajuanSnap = await db.collection('pengajuan').get();
+    const usersSnap = await db.collection('users').get();
+    const modalSnap = await db.collection('modal').orderBy('tanggal','desc').get();
+    
+    let pending = 0, approved = 0;
+    let pendingList = [];
+    pengajuanSnap.forEach(doc => {
+      const p = doc.data();
+      if(p.status === 'pending'){ pending++; pendingList.push({ id: doc.id, ...p }); }
+      if(p.status === 'approved') approved++;
+    });
+    pendingList = pendingList.sort((a,b) => b.created_at - a.created_at).slice(0,5);
+    
+    let modal = 0;
+    modalSnap.forEach(doc => {
+      const m = doc.data();
+      modal += m.jenis === 'masuk' ? m.jumlah : -m.jumlah;
+    });
+    
+    document.getElementById('content').innerHTML = `
+      <div class="stat">
+        <div class="stat-item"><small>Pengajuan Pending</small><h4>${pending}</h4></div>
+        <div class="stat-item"><small>Total Approved</small><h4>${approved}</h4></div>
+        <div class="stat-item"><small>Modal Tersedia</small><h4>Rp ${fmt(modal)}</h4></div>
+        <div class="stat-item"><small>Total Karyawan</small><h4>${usersSnap.size}</h4></div>
       </div>
-      <div id="adminTable"></div>
-    </div>`;
-  filterAdmin();
+      <div class="card">
+        <h6>Pengajuan Pending Terbaru</h6>
+        <div class="table-responsive"><table class="table">
+          <thead><tr><th>Tanggal</th><th>Toko</th><th>Pengaju</th><th>Total</th><th>Aksi</th></tr></thead>
+          <tbody>${pendingList.map(p => `<tr><td>${p.tanggal}</td><td>${p.toko}</td><td>${p.nama_pengaju}</td><td>Rp ${fmt(p.total)}</td><td><button class="btn btn-sm btn-primary" onclick="navigate('admin_pengajuan')">Proses</button></td></tr>`).join('') || '<tr><td colspan="5" class="text-center text-muted">Tidak ada</td></tr>'}</tbody>
+        </table></div>
+      </div>`;
+  } catch(err){
+    console.error(err);
+    toast('Gagal load dashboard','error');
+  }
+}
+
+async function renderAdminPengajuan(){
+  document.getElementById('content').innerHTML = showSkeleton(5);
+  try {
+    const snapshot = await db.collection('pengajuan').orderBy('created_at','desc').get();
+    cacheData.allPengajuan = [];
+    snapshot.forEach(doc => cacheData.allPengajuan.push({ id: doc.id, ...doc.data() }));
+    
+    document.getElementById('content').innerHTML = `
+      <div class="card">
+        <div class="row g-2 mb-3">
+          <div class="col-md-4"><input type="text" id="fSearch2" class="form-control" placeholder="Cari..." oninput="filterAdmin()"></div>
+          <div class="col-md-3"><select id="fStatus2" class="form-control" onchange="filterAdmin()">
+            <option value="">Semua</option><option>pending</option><option>approved</option><option>rejected</option>
+          </select></div>
+        </div>
+        <div id="adminTable"></div>
+      </div>`;
+    filterAdmin();
+  } catch(err){
+    console.error(err);
+    toast('Gagal load pengajuan','error');
+  }
 }
 
 function filterAdmin(){
-  const s=document.getElementById('fSearch2').value.toLowerCase();
-  const st=document.getElementById('fStatus2').value;
-  let data=cacheData.allPengajuan.filter(p=>{
-    if(s&&!p.toko.toLowerCase().includes(s)&&!p.nama_pengaju.toLowerCase().includes(s))return false;
-    if(st&&p.status!==st)return false;
+  const s = document.getElementById('fSearch2').value.toLowerCase();
+  const st = document.getElementById('fStatus2').value;
+  let data = cacheData.allPengajuan.filter(p => {
+    if(s && !p.toko.toLowerCase().includes(s) && !p.nama_pengaju.toLowerCase().includes(s)) return false;
+    if(st && p.status !== st) return false;
     return true;
   });
-  document.getElementById('adminTable').innerHTML=`
+  
+  document.getElementById('adminTable').innerHTML = `
     <div class="table-responsive"><table class="table">
       <thead><tr><th>Tanggal</th><th>Toko</th><th>Pengaju</th><th>Total</th><th>Status</th><th>Aksi</th></tr></thead>
-      <tbody>${data.map(p=>`
+      <tbody>${data.map(p => `
         <tr>
           <td>${p.tanggal}</td><td>${p.toko}</td><td>${p.nama_pengaju}</td>
           <td>Rp ${fmt(p.total)}</td>
           <td><span class="badge-status badge-${p.status}">${p.status}</span></td>
           <td>
-            <button class="btn btn-sm btn-outline" onclick="viewPengajuan(${p.id})"><i class="bi bi-eye"></i></button>
-            ${p.status==='pending'?`
-              <button class="btn btn-sm btn-primary" onclick="approvePengajuan(${p.id},this)"><i class="bi bi-check"></i></button>
-              <button class="btn btn-sm btn-outline text-danger" onclick="rejectPengajuan(${p.id},this)"><i class="bi bi-x"></i></button>
-            `:''}
+            <button class="btn btn-sm btn-outline" onclick="viewPengajuan('${p.id}')"><i class="bi bi-eye"></i></button>
+            ${p.status === 'pending' ? `
+              <button class="btn btn-sm btn-primary" onclick="approvePengajuan('${p.id}',this)"><i class="bi bi-check"></i></button>
+              <button class="btn btn-sm btn-outline text-danger" onclick="rejectPengajuan('${p.id}',this)"><i class="bi bi-x"></i></button>
+            ` : ''}
           </td>
-        </tr>`).join('')||'<tr><td colspan="6" class="text-center text-muted">Tidak ada</td></tr>'}</tbody>
+        </tr>`).join('') || '<tr><td colspan="6" class="text-center text-muted">Tidak ada</td></tr>'}</tbody>
     </table></div>`;
 }
 
-async function approvePengajuan(id,btn){
-  const catatan=prompt('Catatan (opsional):')||'';
-  setBtnLoading(btn,true);
-  const r=await api('approve_pengajuan',{id,status:'approved',catatan},false);
-  setBtnLoading(btn,false);
-  if(r.ok){toast('Pengajuan disetujui','success');renderAdminPengajuan(true)}
-  else toast(r.msg,'error');
+async function approvePengajuan(id, btn){
+  const catatan = prompt('Catatan (opsional):') || '';
+  setBtnLoading(btn, true);
+  try {
+    const doc = await db.collection('pengajuan').doc(id).get();
+    const total = doc.data().total;
+    
+    await db.collection('pengajuan').doc(id).update({
+      status: 'approved',
+      catatan_admin: catatan
+    });
+    
+    // Kurangi modal
+    await db.collection('modal').add({
+      tanggal: new Date().toISOString().slice(0,10),
+      jenis: 'keluar',
+      jumlah: total,
+      keterangan: 'Pengajuan #'+id.substr(0,8),
+      created_at: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    
+    toast('Pengajuan disetujui','success');
+    renderAdminPengajuan();
+  } catch(err){
+    toast('Gagal approve: '+err.message,'error');
+  } finally {
+    setBtnLoading(btn, false);
+  }
 }
-async function rejectPengajuan(id,btn){
-  const catatan=prompt('Alasan penolakan:');
-  if(!catatan)return;
-  setBtnLoading(btn,true);
-  const r=await api('approve_pengajuan',{id,status:'rejected',catatan},false);
-  setBtnLoading(btn,false);
-  if(r.ok){toast('Pengajuan ditolak','success');renderAdminPengajuan(true)}
-  else toast(r.msg,'error');
+
+async function rejectPengajuan(id, btn){
+  const catatan = prompt('Alasan penolakan:');
+  if(!catatan) return;
+  setBtnLoading(btn, true);
+  try {
+    await db.collection('pengajuan').doc(id).update({
+      status: 'rejected',
+      catatan_admin: catatan
+    });
+    toast('Pengajuan ditolak','success');
+    renderAdminPengajuan();
+  } catch(err){
+    toast('Gagal reject: '+err.message,'error');
+  } finally {
+    setBtnLoading(btn, false);
+  }
 }
 
 // ============ KATEGORI ============
 async function renderAdminKategori(){
-  document.getElementById('content').innerHTML=showSkeleton(3);
-  const r=await api('get_kategori');
-  if(!r.ok){toast(r.msg,'error');return}
-  setCache('kategori',r.data);
-  document.getElementById('content').innerHTML=`
-    <div class="card">
-      <div class="d-flex justify-content-between mb-3">
-        <h6 class="mb-0">Daftar Kategori</h6>
-        <button class="btn btn-primary btn-sm" onclick="formKategori()"><i class="bi bi-plus"></i> Tambah</button>
-      </div>
-      <div class="table-responsive"><table class="table">
-        <thead><tr><th>#</th><th>Nama Kategori</th><th>Aksi</th></tr></thead>
-        <tbody>${r.data.map((k,i)=>`<tr><td>${i+1}</td><td>${k.nama}</td><td>
-          <button class="btn btn-sm btn-outline" onclick="formKategori(${k.id},'${k.nama.replace(/'/g,"\\'")}')"><i class="bi bi-pencil"></i></button>
-          <button class="btn btn-sm btn-outline text-danger" onclick="delKategori(${k.id})"><i class="bi bi-trash"></i></button>
-        </td></tr>`).join('')}</tbody>
-      </table></div>
-    </div>`;
+  document.getElementById('content').innerHTML = showSkeleton(3);
+  try {
+    const snapshot = await db.collection('kategori').orderBy('nama').get();
+    cacheData.kategoriList = [];
+    snapshot.forEach(doc => cacheData.kategoriList.push({ id: doc.id, ...doc.data() }));
+    
+    document.getElementById('content').innerHTML = `
+      <div class="card">
+        <div class="d-flex justify-content-between mb-3">
+          <h6 class="mb-0">Daftar Kategori</h6>
+          <button class="btn btn-primary btn-sm" onclick="formKategori()"><i class="bi bi-plus"></i> Tambah</button>
+        </div>
+        <div class="table-responsive"><table class="table">
+          <thead><tr><th>#</th><th>Nama Kategori</th><th>Aksi</th></tr></thead>
+          <tbody>${cacheData.kategoriList.map((k,i) => `<tr><td>${i+1}</td><td>${k.nama}</td><td>
+            <button class="btn btn-sm btn-outline" onclick="editKategori('${k.id}')"><i class="bi bi-pencil"></i></button>
+            <button class="btn btn-sm btn-outline text-danger" onclick="delKategori('${k.id}')"><i class="bi bi-trash"></i></button>
+          </td></tr>`).join('') || '<tr><td colspan="3" class="text-center text-muted">Belum ada</td></tr>'}</tbody>
+        </table></div>
+      </div>`;
+  } catch(err){
+    toast('Gagal load kategori','error');
+  }
 }
 
-function formKategori(id=0,nama=''){
-  document.getElementById('modalContent').innerHTML=`
+function editKategori(id){
+  const k = cacheData.kategoriList.find(x => x.id === id);
+  if(!k){ toast('Data tidak ditemukan','error'); return; }
+  formKategori(id, k.nama);
+}
+
+function formKategori(id=0, nama=''){
+  document.getElementById('modalContent').innerHTML = `
     <div class="modal-header"><h5 class="modal-title">${id?'Edit':'Tambah'} Kategori</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
     <div class="modal-body">
       <label class="small">Nama Kategori</label>
@@ -711,54 +783,77 @@ function formKategori(id=0,nama=''){
     </div>
     <div class="modal-footer">
       <button class="btn btn-outline" data-bs-dismiss="modal">Batal</button>
-      <button class="btn btn-primary" id="btnSaveKat" onclick="saveKategori(${id},this)">Simpan</button>
+      <button class="btn btn-primary" id="btnSaveKat" onclick="saveKategori('${id}',this)">Simpan</button>
     </div>`;
   new bootstrap.Modal(document.getElementById('modal')).show();
+  setTimeout(() => document.getElementById('katNama').focus(), 300);
 }
 
-async function saveKategori(id,btn){
-  const nama=document.getElementById('katNama').value.trim();
-  if(!nama)return;
-  setBtnLoading(btn,true);
-  const r=await api(id?'update_kategori':'add_kategori',{id,nama},false);
-  setBtnLoading(btn,false);
-  if(r.ok){
+async function saveKategori(id, btn){
+  const nama = document.getElementById('katNama').value.trim();
+  if(!nama){ toast('Nama wajib diisi','error'); return; }
+  setBtnLoading(btn, true);
+  try {
+    if(id){
+      await db.collection('kategori').doc(id).update({ nama });
+    } else {
+      await db.collection('kategori').add({ nama });
+    }
     toast('Kategori disimpan','success');
     bootstrap.Modal.getInstance(document.getElementById('modal')).hide();
     renderAdminKategori();
-  }else toast(r.msg,'error');
+  } catch(err){
+    toast('Gagal simpan: '+err.message,'error');
+  } finally {
+    setBtnLoading(btn, false);
+  }
 }
+
 async function delKategori(id){
-  if(!confirm('Hapus?'))return;
+  if(!confirm('Hapus?')) return;
   showLoading('Menghapus...');
-  const r=await api('delete_kategori',{id},false);
-  hideLoading();
-  if(r.ok){toast('Kategori dihapus','success');renderAdminKategori()}
-  else toast(r.msg,'error');
+  try {
+    await db.collection('kategori').doc(id).delete();
+    toast('Kategori dihapus','success');
+    renderAdminKategori();
+  } catch(err){
+    toast('Gagal hapus: '+err.message,'error');
+  } finally {
+    hideLoading();
+  }
 }
 
 // ============ MODAL ============
 async function renderAdminModal(){
-  document.getElementById('content').innerHTML=showSkeleton(3);
-  const r=await api('get_modal');
-  if(!r.ok){toast(r.msg,'error');return}
-  const total=r.data.reduce((s,m)=>s+(m.jenis==='masuk'?m.jumlah:-m.jumlah),0);
-  document.getElementById('content').innerHTML=`
-    <div class="stat"><div class="stat-item"><small>Saldo Modal</small><h4>Rp ${fmt(total)}</h4></div></div>
-    <div class="card">
-      <div class="d-flex justify-content-between mb-3">
-        <h6 class="mb-0">Transaksi Modal</h6>
-        <button class="btn btn-primary btn-sm" onclick="formModal()"><i class="bi bi-plus"></i> Tambah</button>
-      </div>
-      <div class="table-responsive"><table class="table">
-        <thead><tr><th>Tanggal</th><th>Jenis</th><th>Jumlah</th><th>Keterangan</th></tr></thead>
-        <tbody>${r.data.map(m=>`<tr><td>${m.tanggal}</td><td>${m.jenis}</td><td>Rp ${fmt(m.jumlah)}</td><td>${m.keterangan}</td></tr>`).join('')}</tbody>
-      </table></div>
-    </div>`;
+  document.getElementById('content').innerHTML = showSkeleton(3);
+  try {
+    const snapshot = await db.collection('modal').orderBy('tanggal','desc').get();
+    let data = [], total = 0;
+    snapshot.forEach(doc => {
+      const m = doc.data();
+      data.push({ id: doc.id, ...m });
+      total += m.jenis === 'masuk' ? m.jumlah : -m.jumlah;
+    });
+    
+    document.getElementById('content').innerHTML = `
+      <div class="stat"><div class="stat-item"><small>Saldo Modal</small><h4>Rp ${fmt(total)}</h4></div></div>
+      <div class="card">
+        <div class="d-flex justify-content-between mb-3">
+          <h6 class="mb-0">Transaksi Modal</h6>
+          <button class="btn btn-primary btn-sm" onclick="formModal()"><i class="bi bi-plus"></i> Tambah</button>
+        </div>
+        <div class="table-responsive"><table class="table">
+          <thead><tr><th>Tanggal</th><th>Jenis</th><th>Jumlah</th><th>Keterangan</th></tr></thead>
+          <tbody>${data.map(m => `<tr><td>${m.tanggal}</td><td>${m.jenis}</td><td>Rp ${fmt(m.jumlah)}</td><td>${m.keterangan}</td></tr>`).join('') || '<tr><td colspan="4" class="text-center text-muted">Belum ada</td></tr>'}</tbody>
+        </table></div>
+      </div>`;
+  } catch(err){
+    toast('Gagal load modal','error');
+  }
 }
 
 function formModal(){
-  document.getElementById('modalContent').innerHTML=`
+  document.getElementById('modalContent').innerHTML = `
     <div class="modal-header"><h5 class="modal-title">Tambah Modal</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
     <div class="modal-body">
       <div class="mb-2"><label class="small">Tanggal</label><input type="date" id="mTanggal" class="form-control" value="${new Date().toISOString().slice(0,10)}"></div>
@@ -769,163 +864,285 @@ function formModal(){
     <div class="modal-footer"><button class="btn btn-outline" data-bs-dismiss="modal">Batal</button><button class="btn btn-primary" id="btnSaveModal" onclick="saveModal(this)">Simpan</button></div>`;
   new bootstrap.Modal(document.getElementById('modal')).show();
 }
+
 async function saveModal(btn){
-  setBtnLoading(btn,true);
-  const r=await api('add_modal',{
-    tanggal:document.getElementById('mTanggal').value,
-    jenis:document.getElementById('mJenis').value,
-    jumlah:parseFloat(document.getElementById('mJumlah').value)||0,
-    keterangan:document.getElementById('mKet').value
-  },false);
-  setBtnLoading(btn,false);
-  if(r.ok){
+  setBtnLoading(btn, true);
+  try {
+    await db.collection('modal').add({
+      tanggal: document.getElementById('mTanggal').value,
+      jenis: document.getElementById('mJenis').value,
+      jumlah: parseFloat(document.getElementById('mJumlah').value) || 0,
+      keterangan: document.getElementById('mKet').value,
+      created_at: firebase.firestore.FieldValue.serverTimestamp()
+    });
     toast('Modal ditambahkan','success');
     bootstrap.Modal.getInstance(document.getElementById('modal')).hide();
     renderAdminModal();
-  }else toast(r.msg,'error');
+  } catch(err){
+    toast('Gagal simpan: '+err.message,'error');
+  } finally {
+    setBtnLoading(btn, false);
+  }
 }
 
 // ============ TOKO ============
 async function renderAdminToko(){
-  document.getElementById('content').innerHTML=showSkeleton(3);
-  const r=await api('get_toko');
-  if(!r.ok){toast(r.msg,'error');return}
-  setCache('toko',r.data);
-  document.getElementById('content').innerHTML=`
-    <div class="card">
-      <div class="d-flex justify-content-between mb-3">
-        <h6 class="mb-0">Daftar Toko</h6>
-        <button class="btn btn-primary btn-sm" onclick="formToko()"><i class="bi bi-plus"></i> Tambah</button>
-      </div>
-      <div class="table-responsive"><table class="table">
-        <thead><tr><th>#</th><th>Nama Toko</th><th>Aksi</th></tr></thead>
-        <tbody>${r.data.map((t,i)=>`<tr><td>${i+1}</td><td>${t.nama}</td><td>
-          <button class="btn btn-sm btn-outline" onclick="formToko(${t.id},'${t.nama.replace(/'/g,"\\'")}')"><i class="bi bi-pencil"></i></button>
-          <button class="btn btn-sm btn-outline text-danger" onclick="delToko(${t.id})"><i class="bi bi-trash"></i></button>
-        </td></tr>`).join('')}</tbody>
-      </table></div>
-    </div>`;
+  document.getElementById('content').innerHTML = showSkeleton(3);
+  try {
+    const snapshot = await db.collection('toko').orderBy('nama').get();
+    cacheData.tokoList = [];
+    snapshot.forEach(doc => cacheData.tokoList.push({ id: doc.id, ...doc.data() }));
+    
+    document.getElementById('content').innerHTML = `
+      <div class="card">
+        <div class="d-flex justify-content-between mb-3">
+          <h6 class="mb-0">Daftar Toko</h6>
+          <button class="btn btn-primary btn-sm" onclick="formToko()"><i class="bi bi-plus"></i> Tambah</button>
+        </div>
+        <div class="table-responsive"><table class="table">
+          <thead><tr><th>#</th><th>Nama Toko</th><th>Aksi</th></tr></thead>
+          <tbody>${cacheData.tokoList.map((t,i) => `<tr><td>${i+1}</td><td>${t.nama}</td><td>
+            <button class="btn btn-sm btn-outline" onclick="editToko('${t.id}')"><i class="bi bi-pencil"></i></button>
+            <button class="btn btn-sm btn-outline text-danger" onclick="delToko('${t.id}')"><i class="bi bi-trash"></i></button>
+          </td></tr>`).join('') || '<tr><td colspan="3" class="text-center text-muted">Belum ada</td></tr>'}</tbody>
+        </table></div>
+      </div>`;
+  } catch(err){
+    toast('Gagal load toko','error');
+  }
 }
-function formToko(id=0,nama=''){
-  document.getElementById('modalContent').innerHTML=`
+
+function editToko(id){
+  const t = cacheData.tokoList.find(x => x.id === id);
+  if(!t){ toast('Data tidak ditemukan','error'); return; }
+  formToko(id, t.nama);
+}
+
+function formToko(id=0, nama=''){
+  document.getElementById('modalContent').innerHTML = `
     <div class="modal-header"><h5 class="modal-title">${id?'Edit':'Tambah'} Toko</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
     <div class="modal-body"><label class="small">Nama Toko</label><input type="text" id="tNama" class="form-control" value="${nama}"></div>
-    <div class="modal-footer"><button class="btn btn-outline" data-bs-dismiss="modal">Batal</button><button class="btn btn-primary" id="btnSaveToko" onclick="saveToko(${id},this)">Simpan</button></div>`;
+    <div class="modal-footer"><button class="btn btn-outline" data-bs-dismiss="modal">Batal</button><button class="btn btn-primary" id="btnSaveToko" onclick="saveToko('${id}',this)">Simpan</button></div>`;
   new bootstrap.Modal(document.getElementById('modal')).show();
+  setTimeout(() => document.getElementById('tNama').focus(), 300);
 }
-async function saveToko(id,btn){
-  const nama=document.getElementById('tNama').value.trim();if(!nama)return;
-  setBtnLoading(btn,true);
-  const r=await api(id?'update_toko':'add_toko',{id,nama},false);
-  setBtnLoading(btn,false);
-  if(r.ok){
+
+async function saveToko(id, btn){
+  const nama = document.getElementById('tNama').value.trim();
+  if(!nama){ toast('Nama wajib diisi','error'); return; }
+  setBtnLoading(btn, true);
+  try {
+    if(id){
+      await db.collection('toko').doc(id).update({ nama });
+    } else {
+      await db.collection('toko').add({ nama });
+    }
     toast('Toko disimpan','success');
     bootstrap.Modal.getInstance(document.getElementById('modal')).hide();
     renderAdminToko();
-  }else toast(r.msg,'error');
+  } catch(err){
+    toast('Gagal simpan: '+err.message,'error');
+  } finally {
+    setBtnLoading(btn, false);
+  }
 }
+
 async function delToko(id){
-  if(!confirm('Hapus?'))return;
+  if(!confirm('Hapus?')) return;
   showLoading('Menghapus...');
-  const r=await api('delete_toko',{id},false);
-  hideLoading();
-  if(r.ok){toast('Toko dihapus','success');renderAdminToko()}
-  else toast(r.msg,'error');
+  try {
+    await db.collection('toko').doc(id).delete();
+    toast('Toko dihapus','success');
+    renderAdminToko();
+  } catch(err){
+    toast('Gagal hapus: '+err.message,'error');
+  } finally {
+    hideLoading();
+  }
 }
 
 // ============ KARYAWAN ============
 async function renderAdminKaryawan(){
-  document.getElementById('content').innerHTML=showSkeleton(4);
-  const r=await api('get_users');
-  if(!r.ok){toast(r.msg,'error');return}
-  document.getElementById('content').innerHTML=`
-    <div class="card">
-      <div class="d-flex justify-content-between mb-3">
-        <h6 class="mb-0">Karyawan & Admin</h6>
-        <button class="btn btn-primary btn-sm" onclick="formUser()"><i class="bi bi-plus"></i> Tambah</button>
-      </div>
-      <div class="table-responsive"><table class="table">
-        <thead><tr><th>Username</th><th>Nama</th><th>Role</th><th>Toko</th><th>Aksi</th></tr></thead>
-        <tbody>${r.data.map(u=>`<tr><td>${u.username}</td><td>${u.nama}</td><td><span class="badge-status badge-${u.role==='admin'?'approved':'pending'}">${u.role}</span></td><td>${u.toko||'-'}</td><td>
-          <button class="btn btn-sm btn-outline" onclick='formUser(${JSON.stringify(u).replace(/'/g,"&#39;")})'><i class="bi bi-pencil"></i></button>
-          <button class="btn btn-sm btn-outline text-danger" onclick="delUser(${u.id})"><i class="bi bi-trash"></i></button>
-        </td></tr>`).join('')}</tbody>
-      </table></div>
-    </div>`;
+  document.getElementById('content').innerHTML = showSkeleton(4);
+  try {
+    const snapshot = await db.collection('users').get();
+    cacheData.userList = [];
+    snapshot.forEach(doc => cacheData.userList.push({ id: doc.id, ...doc.data() }));
+    
+    document.getElementById('content').innerHTML = `
+      <div class="card">
+        <div class="d-flex justify-content-between mb-3">
+          <h6 class="mb-0">Karyawan & Admin</h6>
+          <button class="btn btn-primary btn-sm" onclick="formUser()"><i class="bi bi-plus"></i> Tambah</button>
+        </div>
+        <div class="table-responsive"><table class="table">
+          <thead><tr><th>Email</th><th>Nama</th><th>Role</th><th>Toko</th><th>Aksi</th></tr></thead>
+          <tbody>${cacheData.userList.map(u => `<tr><td>${u.email}</td><td>${u.nama}</td><td><span class="badge-status badge-${u.role==='admin'?'approved':'pending'}">${u.role}</span></td><td>${u.toko||'-'}</td><td>
+            <button class="btn btn-sm btn-outline" onclick="editUser('${u.id}')"><i class="bi bi-pencil"></i></button>
+            <button class="btn btn-sm btn-outline text-danger" onclick="delUser('${u.id}')"><i class="bi bi-trash"></i></button>
+          </td></tr>`).join('') || '<tr><td colspan="5" class="text-center text-muted">Belum ada</td></tr>'}</tbody>
+        </table></div>
+      </div>`;
+  } catch(err){
+    toast('Gagal load user','error');
+  }
+}
+
+function editUser(id){
+  const u = cacheData.userList.find(x => x.id === id);
+  if(!u){ toast('Data tidak ditemukan','error'); return; }
+  formUser(u);
 }
 
 async function formUser(u={}){
   showLoading('Memuat...');
-  const tokoR=await api('get_toko',{},false);
-  hideLoading();
-  document.getElementById('modalContent').innerHTML=`
-    <div class="modal-header"><h5 class="modal-title">${u.id?'Edit':'Tambah'} User</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
-    <div class="modal-body">
-      <div class="mb-2"><label class="small">Username</label><input type="text" id="uUser" class="form-control" value="${u.username||''}"></div>
-      <div class="mb-2"><label class="small">Password ${u.id?'(kosongkan jika tidak diubah)':''}</label><input type="password" id="uPass" class="form-control"></div>
-      <div class="mb-2"><label class="small">Nama Lengkap</label><input type="text" id="uNama" class="form-control" value="${u.nama||''}"></div>
-      <div class="mb-2"><label class="small">Role</label><select id="uRole" class="form-control"><option value="staf" ${u.role==='staf'?'selected':''}>Staf</option><option value="admin" ${u.role==='admin'?'selected':''}>Admin</option></select></div>
-      <div class="mb-2"><label class="small">Toko</label><select id="uToko" class="form-control"><option value="">-</option>${(tokoR.data||[]).map(t=>`<option value="${t.nama}" ${u.toko===t.nama?'selected':''}>${t.nama}</option>`).join('')}</select></div>
-    </div>
-    <div class="modal-footer"><button class="btn btn-outline" data-bs-dismiss="modal">Batal</button><button class="btn btn-primary" id="btnSaveUser" onclick="saveUser(${u.id||0},this)">Simpan</button></div>`;
-  new bootstrap.Modal(document.getElementById('modal')).show();
+  try {
+    const tokoSnap = await db.collection('toko').get();
+    const tokoList = [];
+    tokoSnap.forEach(doc => tokoList.push(doc.data()));
+    
+    document.getElementById('modalContent').innerHTML = `
+      <div class="modal-header"><h5 class="modal-title">${u.id?'Edit':'Tambah'} User</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <div class="mb-2"><label class="small">Email</label><input type="email" id="uEmail" class="form-control" value="${u.email||''}"></div>
+        <div class="mb-2"><label class="small">Password ${u.id?'(kosongkan jika tidak diubah)':''}</label><input type="password" id="uPass" class="form-control"></div>
+        <div class="mb-2"><label class="small">Nama Lengkap</label><input type="text" id="uNama" class="form-control" value="${u.nama||''}"></div>
+        <div class="mb-2"><label class="small">Role</label><select id="uRole" class="form-control"><option value="staf" ${u.role==='staf'?'selected':''}>Staf</option><option value="admin" ${u.role==='admin'?'selected':''}>Admin</option></select></div>
+        <div class="mb-2"><label class="small">Toko</label><select id="uToko" class="form-control"><option value="">-</option>${tokoList.map(t => `<option value="${t.nama}" ${u.toko===t.nama?'selected':''}>${t.nama}</option>`).join('')}</select></div>
+      </div>
+      <div class="modal-footer"><button class="btn btn-outline" data-bs-dismiss="modal">Batal</button><button class="btn btn-primary" id="btnSaveUser" onclick="saveUser('${u.id||''}',this)">Simpan</button></div>`;
+    new bootstrap.Modal(document.getElementById('modal')).show();
+    setTimeout(() => document.getElementById('uEmail').focus(), 300);
+  } catch(err){
+    toast('Gagal load data','error');
+  } finally {
+    hideLoading();
+  }
 }
-async function saveUser(id,btn){
-  setBtnLoading(btn,true);
-  const r=await api(id?'update_user':'add_user',{
-    id,
-    username:document.getElementById('uUser').value,
-    password:document.getElementById('uPass').value,
-    nama:document.getElementById('uNama').value,
-    role:document.getElementById('uRole').value,
-    toko:document.getElementById('uToko').value
-  },false);
-  setBtnLoading(btn,false);
-  if(r.ok){
-    toast('User disimpan','success');
+
+async function saveUser(id, btn){
+  const email = document.getElementById('uEmail').value.trim();
+  const pass = document.getElementById('uPass').value;
+  const nama = document.getElementById('uNama').value.trim();
+  
+  if(!email || !nama){ toast('Email & nama wajib diisi','error'); return; }
+  if(!id && !pass){ toast('Password wajib untuk user baru','error'); return; }
+  
+  setBtnLoading(btn, true);
+  try {
+    if(id){
+      // Update existing
+      const updates = { email, nama, role: document.getElementById('uRole').value, toko: document.getElementById('uToko').value };
+      await db.collection('users').doc(id).update(updates);
+      if(pass){
+        // Update password di Auth (perlu re-authentication, skip untuk simplicity)
+        toast('User updated (password tidak diubah)','success');
+      } else {
+        toast('User diupdate','success');
+      }
+    } else {
+      // Create new
+      const cred = await auth.createUserWithEmailAndPassword(email, pass);
+      await db.collection('users').doc(cred.user.uid).set({
+        email,
+        nama,
+        role: document.getElementById('uRole').value,
+        toko: document.getElementById('uToko').value,
+        created_at: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      toast('User dibuat','success');
+    }
     bootstrap.Modal.getInstance(document.getElementById('modal')).hide();
     renderAdminKaryawan();
-  }else toast(r.msg,'error');
+  } catch(err){
+    toast('Gagal: '+err.message,'error');
+  } finally {
+    setBtnLoading(btn, false);
+  }
 }
+
 async function delUser(id){
-  if(!confirm('Hapus?'))return;
+  if(!confirm('Hapus user ini?')) return;
+  if(id === currentUser.uid){ toast('Tidak bisa hapus diri sendiri','error'); return; }
   showLoading('Menghapus...');
-  const r=await api('delete_user',{id},false);
-  hideLoading();
-  if(r.ok){toast('User dihapus','success');renderAdminKaryawan()}
-  else toast(r.msg,'error');
+  try {
+    await db.collection('users').doc(id).delete();
+    // Note: Auth user tidak terhapus otomatis, perlu Firebase Admin SDK
+    toast('User dihapus (dari database)','success');
+    renderAdminKaryawan();
+  } catch(err){
+    toast('Gagal hapus: '+err.message,'error');
+  } finally {
+    hideLoading();
+  }
 }
 
 // ============ HELPERS ============
-function fmt(n){return (n||0).toLocaleString('id-ID')}
-
-async function loadTokoSelect(id){
-  // Pakai cache dulu biar cepat
-  let data=getCache('toko');
-  if(!data){
-    const r=await api('get_toko',{},false);
-    data=r.data||[];
-    setCache('toko',data);
-  }
-  document.getElementById(id).innerHTML='<option value="">-- Pilih Toko --</option>'+data.map(t=>`<option>${t.nama}</option>`).join('');
+async function loadTokoSelect(){
+  try {
+    const snapshot = await db.collection('toko').orderBy('nama').get();
+    const select = document.getElementById('fToko');
+    if(select){
+      select.innerHTML = '<option value="">-- Pilih Toko --</option>' + 
+        snapshot.docs.map(doc => `<option>${doc.data().nama}</option>`).join('');
+    }
+  } catch(err){ console.error(err); }
 }
+
 async function loadKategoriSelect(){
-  let data=getCache('kategori');
-  if(!data){
-    const r=await api('get_kategori',{},false);
-    data=r.data||[];
-    setCache('kategori',data);
-  }
-  cacheData.kategori=data;
-}
-function fillKategoriSelect(sel){
-  sel.innerHTML='<option value="">-- Kategori --</option>'+(cacheData.kategori||[]).map(k=>`<option>${k.nama}</option>`).join('');
+  try {
+    const snapshot = await db.collection('kategori').orderBy('nama').get();
+    cacheData.kategori = [];
+    snapshot.forEach(doc => cacheData.kategori.push(doc.data()));
+  } catch(err){ console.error(err); }
 }
 
-window.onload=()=>{
-  const u=localStorage.getItem('pc_user');
-  if(u){currentUser=JSON.parse(u);showApp()}
-};
+function fillKategoriSelect(sel){
+  sel.innerHTML = '<option value="">-- Kategori --</option>' + 
+    (cacheData.kategori||[]).map(k => `<option>${k.nama}</option>`).join('');
+}
+
+// ============ INIT FIREBASE ============
+// Seed data awal jika kosong
+async function seedData(){
+  const usersSnap = await db.collection('users').get();
+  if(usersSnap.empty){
+    // Create default admin
+    const cred = await auth.createUserWithEmailAndPassword('admin@pettycash.com', 'admin123');
+    await db.collection('users').doc(cred.user.uid).set({
+      email: 'admin@pettycash.com',
+      nama: 'Administrator',
+      role: 'admin',
+      toko: '',
+      created_at: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    
+    // Seed kategori
+    const kategoriList = ['Operasional','Transport','Konsumsi','ATK','Lain-lain'];
+    kategoriList.forEach(k => db.collection('kategori').add({ nama: k }));
+    
+    // Seed toko
+    await db.collection('toko').add({ nama: 'Toko Pusat' });
+    
+    // Seed modal awal
+    await db.collection('modal').add({
+      tanggal: new Date().toISOString().slice(0,10),
+      jenis: 'masuk',
+      jumlah: 5000000,
+      keterangan: 'Modal Awal',
+      created_at: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    
+    toast('Data awal berhasil dibuat','success');
+  }
+}
+
+// Jalankan seed setelah Firebase ready
+setTimeout(() => {
+  if(auth.currentUser && auth.currentUser.email === 'admin@pettycash.com'){
+    seedData();
+  }
+}, 2000);
 </script>
 </body>
 </html>
