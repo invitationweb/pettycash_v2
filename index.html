@@ -9,7 +9,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.0/jspdf.plugin.autotable.min.js"></script>
 
-<!-- Firebase SDK -->
+<!-- Firebase SDK (Hanya App, Auth, Firestore. Tidak perlu Storage) -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
@@ -19,7 +19,7 @@
   *{box-sizing:border-box}
   body{background:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#1f2937;margin:0}
   
-  .loading-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(255,255,255,.7);backdrop-filter:blur(2px);display:none;align-items:center;justify-content:center;z-index:9999;flex-direction:column;gap:12px}
+  .loading-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(255,255,255,.8);backdrop-filter:blur(2px);display:none;align-items:center;justify-content:center;z-index:9999;flex-direction:column;gap:12px}
   .loading-overlay.show{display:flex}
   .spinner{width:44px;height:44px;border:3px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite}
   @keyframes spin{to{transform:rotate(360deg)}}
@@ -168,11 +168,9 @@ const firebaseConfig = {
   appId: "1:265322259072:web:4bd9f807d745d8c8bf3c65"
 };
 
-// Initialize Firebase
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
-
 console.log('✅ Firebase initialized');
 
 // ============ GLOBAL ============
@@ -183,11 +181,9 @@ function showLoading(text='Memuat...'){
   document.getElementById('loadingText').innerText = text;
   document.getElementById('loadingOverlay').classList.add('show');
 }
-
 function hideLoading(){
   document.getElementById('loadingOverlay').classList.remove('show');
 }
-
 function setBtnLoading(btn, loading){
   if(!btn) return;
   if(loading){
@@ -200,7 +196,6 @@ function setBtnLoading(btn, loading){
     if(btn.dataset.originalText) btn.innerHTML = btn.dataset.originalText;
   }
 }
-
 function toast(msg, type='info'){
   const div = document.createElement('div');
   div.className = 'toast-msg ' + type;
@@ -209,39 +204,37 @@ function toast(msg, type='info'){
   document.getElementById('toastContainer').appendChild(div);
   setTimeout(() => { div.style.opacity = '0'; setTimeout(() => div.remove(), 300); }, 3000);
 }
-
 function fmt(n){ return (n || 0).toLocaleString('id-ID'); }
-
 function showSkeleton(count=3){
   return `<div class="card">${Array(count).fill('<div class="skeleton"></div>').join('')}</div>`;
 }
 
 // ============ AUTH ============
 auth.onAuthStateChanged(async user => {
-  console.log('Auth state changed:', user ? user.email : 'not logged in');
+  console.log('🔍 Auth state:', user ? user.email : 'not logged in');
+  
+  // Reset tombol login biar tidak muter
+  const btn = document.getElementById('btnLogin');
+  if(btn) { btn.disabled = false; btn.innerHTML = 'Login'; }
+  hideLoading();
+
   if(user){
     try {
       const doc = await db.collection('users').doc(user.uid).get();
       if(doc.exists){
         currentUser = { uid: user.uid, ...doc.data() };
-        console.log('✅ User loaded:', currentUser);
-        showApp();
+        console.log('✅ User loaded');
       } else {
-        console.warn('User data not found in Firestore, creating...');
-        // Auto-create user data if missing
-        await db.collection('users').doc(user.uid).set({
-          email: user.email,
-          nama: user.email.split('@')[0],
-          role: 'admin',
-          toko: '',
-          created_at: firebase.firestore.FieldValue.serverTimestamp()
-        });
-        currentUser = { uid: user.uid, email: user.email, nama: user.email.split('@')[0], role: 'admin', toko: '' };
-        showApp();
+        console.warn('⚠️ Auto-creating user...');
+        const userData = { email: user.email, nama: user.email.split('@')[0], role: 'admin', toko: '' };
+        try { await db.collection('users').doc(user.uid).set(userData); } catch(e) {}
+        currentUser = { uid: user.uid, ...userData };
       }
+      showApp();
     } catch(err){
-      console.error('Error loading user:', err);
-      toast('Gagal load data user: '+err.message,'error');
+      console.error('❌ Error:', err);
+      toast('Gagal memuat data: ' + err.message, 'error');
+      auth.signOut();
     }
   } else {
     document.getElementById('loginPage').style.display = 'flex';
@@ -253,37 +246,31 @@ async function doLogin(){
   const email = document.getElementById('loginEmail').value.trim();
   const pass = document.getElementById('loginPass').value;
   const btn = document.getElementById('btnLogin');
+  const msgBox = document.getElementById('loginMsg');
   
-  console.log('Login attempt:', email);
+  msgBox.innerText = '';
+  if(!email || !pass){ msgBox.innerText = 'Email dan password wajib diisi!'; return; }
   
-  if(!email || !pass){ 
-    document.getElementById('loginMsg').innerText = 'Lengkapi data'; 
-    return; 
-  }
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Memproses...';
   
-  setBtnLoading(btn, true);
   try {
     await auth.signInWithEmailAndPassword(email, pass);
-    toast('Login berhasil','success');
   } catch(err){
-    console.error('Login error:', err);
+    console.error(' Login Gagal:', err);
     let msg = 'Login gagal';
     if(err.code === 'auth/user-not-found') msg = 'Email tidak terdaftar';
-    else if(err.code === 'auth/wrong-password') msg = 'Password salah';
-    else if(err.code === 'auth/invalid-email') msg = 'Format email salah';
-    else if(err.code === 'auth/invalid-credential') msg = 'Email/password salah';
+    else if(err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') msg = 'Password salah';
     else msg = err.message;
     
-    document.getElementById('loginMsg').innerText = msg;
-    toast(msg,'error');
-    setBtnLoading(btn, false);
+    msgBox.innerText = msg;
+    toast(msg, 'error');
+    btn.disabled = false;
+    btn.innerHTML = 'Login';
   }
 }
 
-function logout(){
-  auth.signOut();
-  location.reload();
-}
+function logout(){ auth.signOut(); location.reload(); }
 
 function showApp(){
   document.getElementById('loginPage').style.display = 'none';
@@ -294,11 +281,7 @@ function showApp(){
   document.getElementById('roleLabel').innerText = currentUser.role.toUpperCase();
   buildMenu();
   navigate(currentUser.role === 'admin' ? 'admin_dashboard' : 'staf_dashboard');
-  
-  // Seed data jika admin pertama kali login
-  if(currentUser.role === 'admin'){
-    seedDataIfEmpty();
-  }
+  if(currentUser.role === 'admin') seedDataIfEmpty();
 }
 
 function buildMenu(){
@@ -348,7 +331,8 @@ async function renderStafDashboard(){
       if(p.status === 'approved'){ approved++; nominal += p.total; }
       recent.push({ id: doc.id, ...p });
     });
-    recent = recent.sort((a,b) => (b.created_at?.seconds||0) - (a.created_at?.seconds||0)).slice(0,5);
+    recent.sort((a,b) => (b.created_at?.seconds||0) - (a.created_at?.seconds||0));
+    recent = recent.slice(0,5);
     
     document.getElementById('content').innerHTML = `
       <div class="stat">
@@ -364,11 +348,7 @@ async function renderStafDashboard(){
           <tbody>${recent.map(p => `<tr><td>${p.tanggal}</td><td>Rp ${fmt(p.total)}</td><td><span class="badge-status badge-${p.status}">${p.status}</span></td></tr>`).join('') || '<tr><td colspan="3" class="text-center text-muted">Belum ada</td></tr>'}</tbody>
         </table></div>
       </div>`;
-  } catch(err){
-    console.error(err);
-    toast('Gagal load dashboard: '+err.message,'error');
-    document.getElementById('content').innerHTML = '<div class="card text-danger">Error: '+err.message+'</div>';
-  }
+  } catch(err){ console.error(err); toast('Gagal load dashboard','error'); }
 }
 
 function renderStafPengajuan(){
@@ -419,18 +399,27 @@ function addItemRow(){
 function previewFoto(inp, id){
   const f = inp.files[0];
   if(!f) return;
-  if(f.size > 500*1024){ 
-    toast('Ukuran foto maks 500KB','error'); 
-    inp.value=''; 
-    return; 
-  }
+  if(f.size > 3 * 1024 * 1024){ toast('Ukuran file terlalu besar (Maks 3MB)','error'); inp.value=''; return; }
   
   const reader = new FileReader();
   reader.onload = function(e){
-    const base64 = e.target.result;
-    inp.dataset.base64 = base64;
-    document.getElementById('preview-'+id).innerHTML = `<img src="${base64}" class="photo-preview">`;
-    toast('Foto dimuat','success');
+    const img = new Image();
+    img.onload = function(){
+      const canvas = document.createElement('canvas');
+      let width = img.width;
+      let height = img.height;
+      const MAX_WIDTH = 800;
+      if(width > MAX_WIDTH){ height *= MAX_WIDTH / width; width = MAX_WIDTH; }
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+      const base64 = canvas.toDataURL('image/jpeg', 0.7);
+      inp.dataset.base64 = base64;
+      document.getElementById('preview-'+id).innerHTML = `<img src="${base64}" class="photo-preview">`;
+      toast('Foto berhasil dikompres','success');
+    };
+    img.src = e.target.result;
   };
   reader.readAsDataURL(f);
 }
@@ -446,7 +435,6 @@ function calcTotal(){
 
 async function submitPengajuan(btn){
   const items = [];
-  
   document.querySelectorAll('.item-row').forEach(r => {
     const nama = r.querySelector('[data-f="nama"]').value;
     const kategori = r.querySelector('[data-f="kategori"]').value;
@@ -459,7 +447,6 @@ async function submitPengajuan(btn){
   if(!document.getElementById('fToko').value){ toast('Pilih toko','error'); return; }
   
   const total = items.reduce((s,i) => s + i.nominal, 0);
-  
   setBtnLoading(btn, true);
   try {
     await db.collection('pengajuan').add({
@@ -489,9 +476,11 @@ function resetForm(){ itemCounter = 0; renderStafPengajuan(); }
 async function renderStafRiwayat(){
   document.getElementById('content').innerHTML = showSkeleton(5);
   try {
-    const snapshot = await db.collection('pengajuan').where('user_id','==',currentUser.uid).orderBy('created_at','desc').get();
+    const snapshot = await db.collection('pengajuan').where('user_id','==',currentUser.uid).get();
     cacheData.pengajuan = [];
     snapshot.forEach(doc => cacheData.pengajuan.push({ id: doc.id, ...doc.data() }));
+    
+    cacheData.pengajuan.sort((a, b) => (b.created_at?.seconds||0) - (a.created_at?.seconds||0));
     
     document.getElementById('content').innerHTML = `
       <div class="card">
@@ -506,10 +495,7 @@ async function renderStafRiwayat(){
         <div id="riwayatTable"></div>
       </div>`;
     filterRiwayat();
-  } catch(err){
-    console.error(err);
-    toast('Gagal load riwayat: '+err.message,'error');
-  }
+  } catch(err){ console.error(err); toast('Gagal load riwayat','error'); }
 }
 
 function filterRiwayat(){
@@ -517,7 +503,6 @@ function filterRiwayat(){
   const st = document.getElementById('fStatus').value;
   const from = document.getElementById('fFrom').value;
   const to = document.getElementById('fTo').value;
-  
   let data = cacheData.pengajuan.filter(p => {
     if(s && !p.toko.toLowerCase().includes(s) && !p.nama_pengaju.toLowerCase().includes(s)) return false;
     if(st && p.status !== st) return false;
@@ -525,7 +510,6 @@ function filterRiwayat(){
     if(to && p.tanggal > to) return false;
     return true;
   });
-  
   document.getElementById('riwayatTable').innerHTML = `
     <div class="table-responsive"><table class="table">
       <thead><tr><th>Tanggal</th><th>Toko</th><th>Pengaju</th><th>Total</th><th>Status</th><th>Aksi</th></tr></thead>
@@ -548,7 +532,6 @@ async function viewPengajuan(id){
   try {
     const doc = await db.collection('pengajuan').doc(id).get();
     const p = { id: doc.id, ...doc.data() };
-    
     document.getElementById('modalContent').innerHTML = `
       <div class="modal-header"><h5 class="modal-title">Detail Pengajuan #${id.substr(0,8)}</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
       <div class="modal-body">
@@ -560,11 +543,7 @@ async function viewPengajuan(id){
         ${p.catatan_admin ? `<div class="alert alert-info mt-2"><b>Catatan Admin:</b> ${p.catatan_admin}</div>` : ''}
       </div>`;
     new bootstrap.Modal(document.getElementById('modal')).show();
-  } catch(err){
-    toast('Gagal load detail: '+err.message,'error');
-  } finally {
-    hideLoading();
-  }
+  } catch(err){ toast('Gagal load detail','error'); } finally { hideLoading(); }
 }
 
 async function deletePengajuan(id){
@@ -574,17 +553,12 @@ async function deletePengajuan(id){
     await db.collection('pengajuan').doc(id).delete();
     toast('Pengajuan dihapus','success');
     renderStafRiwayat();
-  } catch(err){
-    toast('Gagal hapus: '+err.message,'error');
-  } finally {
-    hideLoading();
-  }
+  } catch(err){ toast('Gagal hapus: '+err.message,'error'); } finally { hideLoading(); }
 }
 
 function printPDF(id){
   const p = cacheData.pengajuan.find(x => x.id === id);
   if(!p){ toast('Data tidak ditemukan','error'); return; }
-  
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
   doc.setFontSize(16); doc.text('FORM PETTY CASH', 14, 20);
@@ -618,7 +592,8 @@ async function renderAdminDashboard(){
       if(p.status === 'pending'){ pending++; pendingList.push({ id: doc.id, ...p }); }
       if(p.status === 'approved') approved++;
     });
-    pendingList = pendingList.sort((a,b) => (b.created_at?.seconds||0) - (a.created_at?.seconds||0)).slice(0,5);
+    pendingList.sort((a,b) => (b.created_at?.seconds||0) - (a.created_at?.seconds||0));
+    pendingList = pendingList.slice(0,5);
     
     let modal = 0;
     modalSnap.forEach(doc => {
@@ -640,18 +615,16 @@ async function renderAdminDashboard(){
           <tbody>${pendingList.map(p => `<tr><td>${p.tanggal}</td><td>${p.toko}</td><td>${p.nama_pengaju}</td><td>Rp ${fmt(p.total)}</td><td><button class="btn btn-sm btn-primary" onclick="navigate('admin_pengajuan')">Proses</button></td></tr>`).join('') || '<tr><td colspan="5" class="text-center text-muted">Tidak ada</td></tr>'}</tbody>
         </table></div>
       </div>`;
-  } catch(err){
-    console.error(err);
-    toast('Gagal load dashboard: '+err.message,'error');
-  }
+  } catch(err){ console.error(err); toast('Gagal load dashboard','error'); }
 }
 
 async function renderAdminPengajuan(){
   document.getElementById('content').innerHTML = showSkeleton(5);
   try {
-    const snapshot = await db.collection('pengajuan').orderBy('created_at','desc').get();
+    const snapshot = await db.collection('pengajuan').get();
     cacheData.allPengajuan = [];
     snapshot.forEach(doc => cacheData.allPengajuan.push({ id: doc.id, ...doc.data() }));
+    cacheData.allPengajuan.sort((a, b) => (b.created_at?.seconds||0) - (a.created_at?.seconds||0));
     
     document.getElementById('content').innerHTML = `
       <div class="card">
@@ -664,10 +637,7 @@ async function renderAdminPengajuan(){
         <div id="adminTable"></div>
       </div>`;
     filterAdmin();
-  } catch(err){
-    console.error(err);
-    toast('Gagal load pengajuan: '+err.message,'error');
-  }
+  } catch(err){ console.error(err); toast('Gagal load pengajuan','error'); }
 }
 
 function filterAdmin(){
@@ -678,7 +648,6 @@ function filterAdmin(){
     if(st && p.status !== st) return false;
     return true;
   });
-  
   document.getElementById('adminTable').innerHTML = `
     <div class="table-responsive"><table class="table">
       <thead><tr><th>Tanggal</th><th>Toko</th><th>Pengaju</th><th>Total</th><th>Status</th><th>Aksi</th></tr></thead>
@@ -704,12 +673,7 @@ async function approvePengajuan(id, btn){
   try {
     const doc = await db.collection('pengajuan').doc(id).get();
     const total = doc.data().total;
-    
-    await db.collection('pengajuan').doc(id).update({
-      status: 'approved',
-      catatan_admin: catatan
-    });
-    
+    await db.collection('pengajuan').doc(id).update({ status: 'approved', catatan_admin: catatan });
     await db.collection('modal').add({
       tanggal: new Date().toISOString().slice(0,10),
       jenis: 'keluar',
@@ -717,14 +681,9 @@ async function approvePengajuan(id, btn){
       keterangan: 'Pengajuan #'+id.substr(0,8),
       created_at: firebase.firestore.FieldValue.serverTimestamp()
     });
-    
     toast('Pengajuan disetujui','success');
     renderAdminPengajuan();
-  } catch(err){
-    toast('Gagal approve: '+err.message,'error');
-  } finally {
-    setBtnLoading(btn, false);
-  }
+  } catch(err){ toast('Gagal approve: '+err.message,'error'); } finally { setBtnLoading(btn, false); }
 }
 
 async function rejectPengajuan(id, btn){
@@ -732,27 +691,19 @@ async function rejectPengajuan(id, btn){
   if(!catatan) return;
   setBtnLoading(btn, true);
   try {
-    await db.collection('pengajuan').doc(id).update({
-      status: 'rejected',
-      catatan_admin: catatan
-    });
+    await db.collection('pengajuan').doc(id).update({ status: 'rejected', catatan_admin: catatan });
     toast('Pengajuan ditolak','success');
     renderAdminPengajuan();
-  } catch(err){
-    toast('Gagal reject: '+err.message,'error');
-  } finally {
-    setBtnLoading(btn, false);
-  }
+  } catch(err){ toast('Gagal reject: '+err.message,'error'); } finally { setBtnLoading(btn, false); }
 }
 
 // ============ KATEGORI ============
 async function renderAdminKategori(){
   document.getElementById('content').innerHTML = showSkeleton(3);
   try {
-    const snapshot = await db.collection('kategori').orderBy('nama').get();
+    const snapshot = await db.collection('kategori').get();
     cacheData.kategoriList = [];
     snapshot.forEach(doc => cacheData.kategoriList.push({ id: doc.id, ...doc.data() }));
-    
     document.getElementById('content').innerHTML = `
       <div class="card">
         <div class="d-flex justify-content-between mb-3">
@@ -767,24 +718,13 @@ async function renderAdminKategori(){
           </td></tr>`).join('') || '<tr><td colspan="3" class="text-center text-muted">Belum ada</td></tr>'}</tbody>
         </table></div>
       </div>`;
-  } catch(err){
-    toast('Gagal load kategori: '+err.message,'error');
-  }
+  } catch(err){ toast('Gagal load kategori','error'); }
 }
-
-function editKategori(id){
-  const k = cacheData.kategoriList.find(x => x.id === id);
-  if(!k){ toast('Data tidak ditemukan','error'); return; }
-  formKategori(id, k.nama);
-}
-
+function editKategori(id){ const k = cacheData.kategoriList.find(x => x.id === id); if(!k){ toast('Data tidak ditemukan','error'); return; } formKategori(id, k.nama); }
 function formKategori(id=0, nama=''){
   document.getElementById('modalContent').innerHTML = `
     <div class="modal-header"><h5 class="modal-title">${id?'Edit':'Tambah'} Kategori</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
-    <div class="modal-body">
-      <label class="small">Nama Kategori</label>
-      <input type="text" id="katNama" class="form-control" value="${nama}">
-    </div>
+    <div class="modal-body"><label class="small">Nama Kategori</label><input type="text" id="katNama" class="form-control" value="${nama}"></div>
     <div class="modal-footer">
       <button class="btn btn-outline" data-bs-dismiss="modal">Batal</button>
       <button class="btn btn-primary" id="btnSaveKat" onclick="saveKategori('${id}',this)">Simpan</button>
@@ -792,39 +732,23 @@ function formKategori(id=0, nama=''){
   new bootstrap.Modal(document.getElementById('modal')).show();
   setTimeout(() => document.getElementById('katNama').focus(), 300);
 }
-
 async function saveKategori(id, btn){
   const nama = document.getElementById('katNama').value.trim();
   if(!nama){ toast('Nama wajib diisi','error'); return; }
   setBtnLoading(btn, true);
   try {
-    if(id){
-      await db.collection('kategori').doc(id).update({ nama });
-    } else {
-      await db.collection('kategori').add({ nama });
-    }
+    if(id) await db.collection('kategori').doc(id).update({ nama });
+    else await db.collection('kategori').add({ nama });
     toast('Kategori disimpan','success');
     bootstrap.Modal.getInstance(document.getElementById('modal')).hide();
     renderAdminKategori();
-  } catch(err){
-    toast('Gagal simpan: '+err.message,'error');
-  } finally {
-    setBtnLoading(btn, false);
-  }
+  } catch(err){ toast('Gagal simpan: '+err.message,'error'); } finally { setBtnLoading(btn, false); }
 }
-
 async function delKategori(id){
   if(!confirm('Hapus?')) return;
   showLoading('Menghapus...');
-  try {
-    await db.collection('kategori').doc(id).delete();
-    toast('Kategori dihapus','success');
-    renderAdminKategori();
-  } catch(err){
-    toast('Gagal hapus: '+err.message,'error');
-  } finally {
-    hideLoading();
-  }
+  try { await db.collection('kategori').doc(id).delete(); toast('Kategori dihapus','success'); renderAdminKategori(); } 
+  catch(err){ toast('Gagal hapus: '+err.message,'error'); } finally { hideLoading(); }
 }
 
 // ============ MODAL ============
@@ -839,7 +763,6 @@ async function renderAdminModal(){
       total += m.jenis === 'masuk' ? m.jumlah : -m.jumlah;
     });
     data.sort((a,b) => (b.tanggal||'').localeCompare(a.tanggal||''));
-    
     document.getElementById('content').innerHTML = `
       <div class="stat"><div class="stat-item"><small>Saldo Modal</small><h4>Rp ${fmt(total)}</h4></div></div>
       <div class="card">
@@ -852,11 +775,8 @@ async function renderAdminModal(){
           <tbody>${data.map(m => `<tr><td>${m.tanggal}</td><td>${m.jenis}</td><td>Rp ${fmt(m.jumlah)}</td><td>${m.keterangan}</td></tr>`).join('') || '<tr><td colspan="4" class="text-center text-muted">Belum ada</td></tr>'}</tbody>
         </table></div>
       </div>`;
-  } catch(err){
-    toast('Gagal load modal: '+err.message,'error');
-  }
+  } catch(err){ toast('Gagal load modal','error'); }
 }
-
 function formModal(){
   document.getElementById('modalContent').innerHTML = `
     <div class="modal-header"><h5 class="modal-title">Tambah Modal</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
@@ -869,7 +789,6 @@ function formModal(){
     <div class="modal-footer"><button class="btn btn-outline" data-bs-dismiss="modal">Batal</button><button class="btn btn-primary" id="btnSaveModal" onclick="saveModal(this)">Simpan</button></div>`;
   new bootstrap.Modal(document.getElementById('modal')).show();
 }
-
 async function saveModal(btn){
   setBtnLoading(btn, true);
   try {
@@ -883,21 +802,16 @@ async function saveModal(btn){
     toast('Modal ditambahkan','success');
     bootstrap.Modal.getInstance(document.getElementById('modal')).hide();
     renderAdminModal();
-  } catch(err){
-    toast('Gagal simpan: '+err.message,'error');
-  } finally {
-    setBtnLoading(btn, false);
-  }
+  } catch(err){ toast('Gagal simpan: '+err.message,'error'); } finally { setBtnLoading(btn, false); }
 }
 
 // ============ TOKO ============
 async function renderAdminToko(){
   document.getElementById('content').innerHTML = showSkeleton(3);
   try {
-    const snapshot = await db.collection('toko').orderBy('nama').get();
+    const snapshot = await db.collection('toko').get();
     cacheData.tokoList = [];
     snapshot.forEach(doc => cacheData.tokoList.push({ id: doc.id, ...doc.data() }));
-    
     document.getElementById('content').innerHTML = `
       <div class="card">
         <div class="d-flex justify-content-between mb-3">
@@ -912,17 +826,9 @@ async function renderAdminToko(){
           </td></tr>`).join('') || '<tr><td colspan="3" class="text-center text-muted">Belum ada</td></tr>'}</tbody>
         </table></div>
       </div>`;
-  } catch(err){
-    toast('Gagal load toko: '+err.message,'error');
-  }
+  } catch(err){ toast('Gagal load toko','error'); }
 }
-
-function editToko(id){
-  const t = cacheData.tokoList.find(x => x.id === id);
-  if(!t){ toast('Data tidak ditemukan','error'); return; }
-  formToko(id, t.nama);
-}
-
+function editToko(id){ const t = cacheData.tokoList.find(x => x.id === id); if(!t){ toast('Data tidak ditemukan','error'); return; } formToko(id, t.nama); }
 function formToko(id=0, nama=''){
   document.getElementById('modalContent').innerHTML = `
     <div class="modal-header"><h5 class="modal-title">${id?'Edit':'Tambah'} Toko</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
@@ -931,39 +837,23 @@ function formToko(id=0, nama=''){
   new bootstrap.Modal(document.getElementById('modal')).show();
   setTimeout(() => document.getElementById('tNama').focus(), 300);
 }
-
 async function saveToko(id, btn){
   const nama = document.getElementById('tNama').value.trim();
   if(!nama){ toast('Nama wajib diisi','error'); return; }
   setBtnLoading(btn, true);
   try {
-    if(id){
-      await db.collection('toko').doc(id).update({ nama });
-    } else {
-      await db.collection('toko').add({ nama });
-    }
+    if(id) await db.collection('toko').doc(id).update({ nama });
+    else await db.collection('toko').add({ nama });
     toast('Toko disimpan','success');
     bootstrap.Modal.getInstance(document.getElementById('modal')).hide();
     renderAdminToko();
-  } catch(err){
-    toast('Gagal simpan: '+err.message,'error');
-  } finally {
-    setBtnLoading(btn, false);
-  }
+  } catch(err){ toast('Gagal simpan: '+err.message,'error'); } finally { setBtnLoading(btn, false); }
 }
-
 async function delToko(id){
   if(!confirm('Hapus?')) return;
   showLoading('Menghapus...');
-  try {
-    await db.collection('toko').doc(id).delete();
-    toast('Toko dihapus','success');
-    renderAdminToko();
-  } catch(err){
-    toast('Gagal hapus: '+err.message,'error');
-  } finally {
-    hideLoading();
-  }
+  try { await db.collection('toko').doc(id).delete(); toast('Toko dihapus','success'); renderAdminToko(); } 
+  catch(err){ toast('Gagal hapus: '+err.message,'error'); } finally { hideLoading(); }
 }
 
 // ============ KARYAWAN ============
@@ -973,7 +863,6 @@ async function renderAdminKaryawan(){
     const snapshot = await db.collection('users').get();
     cacheData.userList = [];
     snapshot.forEach(doc => cacheData.userList.push({ id: doc.id, ...doc.data() }));
-    
     document.getElementById('content').innerHTML = `
       <div class="card">
         <div class="d-flex justify-content-between mb-3">
@@ -988,24 +877,15 @@ async function renderAdminKaryawan(){
           </td></tr>`).join('') || '<tr><td colspan="5" class="text-center text-muted">Belum ada</td></tr>'}</tbody>
         </table></div>
       </div>`;
-  } catch(err){
-    toast('Gagal load user: '+err.message,'error');
-  }
+  } catch(err){ toast('Gagal load user','error'); }
 }
-
-function editUser(id){
-  const u = cacheData.userList.find(x => x.id === id);
-  if(!u){ toast('Data tidak ditemukan','error'); return; }
-  formUser(u);
-}
-
+function editUser(id){ const u = cacheData.userList.find(x => x.id === id); if(!u){ toast('Data tidak ditemukan','error'); return; } formUser(u); }
 async function formUser(u={}){
   showLoading('Memuat...');
   try {
     const tokoSnap = await db.collection('toko').get();
     const tokoList = [];
     tokoSnap.forEach(doc => tokoList.push(doc.data()));
-    
     document.getElementById('modalContent').innerHTML = `
       <div class="modal-header"><h5 class="modal-title">${u.id?'Edit':'Tambah'} User</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
       <div class="modal-body">
@@ -1018,121 +898,73 @@ async function formUser(u={}){
       <div class="modal-footer"><button class="btn btn-outline" data-bs-dismiss="modal">Batal</button><button class="btn btn-primary" id="btnSaveUser" onclick="saveUser('${u.id||''}',this)">Simpan</button></div>`;
     new bootstrap.Modal(document.getElementById('modal')).show();
     setTimeout(() => document.getElementById('uEmail').focus(), 300);
-  } catch(err){
-    toast('Gagal load data: '+err.message,'error');
-  } finally {
-    hideLoading();
-  }
+  } catch(err){ toast('Gagal load data','error'); } finally { hideLoading(); }
 }
-
 async function saveUser(id, btn){
   const email = document.getElementById('uEmail').value.trim();
   const pass = document.getElementById('uPass').value;
   const nama = document.getElementById('uNama').value.trim();
-  
   if(!email || !nama){ toast('Email & nama wajib diisi','error'); return; }
   if(!id && !pass){ toast('Password wajib untuk user baru','error'); return; }
-  
   setBtnLoading(btn, true);
   try {
     if(id){
-      const updates = { email, nama, role: document.getElementById('uRole').value, toko: document.getElementById('uToko').value };
-      await db.collection('users').doc(id).update(updates);
+      await db.collection('users').doc(id).update({ email, nama, role: document.getElementById('uRole').value, toko: document.getElementById('uToko').value });
       toast('User diupdate','success');
     } else {
       const cred = await auth.createUserWithEmailAndPassword(email, pass);
-      await db.collection('users').doc(cred.user.uid).set({
-        email,
-        nama,
-        role: document.getElementById('uRole').value,
-        toko: document.getElementById('uToko').value,
-        created_at: firebase.firestore.FieldValue.serverTimestamp()
-      });
+      await db.collection('users').doc(cred.user.uid).set({ email, nama, role: document.getElementById('uRole').value, toko: document.getElementById('uToko').value, created_at: firebase.firestore.FieldValue.serverTimestamp() });
       toast('User dibuat','success');
     }
     bootstrap.Modal.getInstance(document.getElementById('modal')).hide();
     renderAdminKaryawan();
-  } catch(err){
-    toast('Gagal: '+err.message,'error');
-  } finally {
-    setBtnLoading(btn, false);
-  }
+  } catch(err){ toast('Gagal: '+err.message,'error'); } finally { setBtnLoading(btn, false); }
 }
-
 async function delUser(id){
   if(!confirm('Hapus user ini?')) return;
   if(id === currentUser.uid){ toast('Tidak bisa hapus diri sendiri','error'); return; }
   showLoading('Menghapus...');
-  try {
-    await db.collection('users').doc(id).delete();
-    toast('User dihapus','success');
-    renderAdminKaryawan();
-  } catch(err){
-    toast('Gagal hapus: '+err.message,'error');
-  } finally {
-    hideLoading();
-  }
+  try { await db.collection('users').doc(id).delete(); toast('User dihapus','success'); renderAdminKaryawan(); } 
+  catch(err){ toast('Gagal hapus: '+err.message,'error'); } finally { hideLoading(); }
 }
 
 // ============ HELPERS ============
 async function loadTokoSelect(){
   try {
-    const snapshot = await db.collection('toko').orderBy('nama').get();
+    const snapshot = await db.collection('toko').get();
     const select = document.getElementById('fToko');
-    if(select){
-      select.innerHTML = '<option value="">-- Pilih Toko --</option>' + 
-        snapshot.docs.map(doc => `<option>${doc.data().nama}</option>`).join('');
-    }
+    if(select) select.innerHTML = '<option value="">-- Pilih Toko --</option>' + snapshot.docs.map(doc => `<option>${doc.data().nama}</option>`).join('');
   } catch(err){ console.error(err); }
 }
-
 async function loadKategoriSelect(){
   try {
-    const snapshot = await db.collection('kategori').orderBy('nama').get();
+    const snapshot = await db.collection('kategori').get();
     cacheData.kategori = [];
     snapshot.forEach(doc => cacheData.kategori.push(doc.data()));
   } catch(err){ console.error(err); }
 }
-
 function fillKategoriSelect(sel){
-  sel.innerHTML = '<option value="">-- Kategori --</option>' + 
-    (cacheData.kategori||[]).map(k => `<option>${k.nama}</option>`).join('');
+  sel.innerHTML = '<option value="">-- Kategori --</option>' + (cacheData.kategori||[]).map(k => `<option>${k.nama}</option>`).join('');
 }
 
 // ============ SEED DATA ============
 async function seedDataIfEmpty(){
   try {
-    const usersSnap = await db.collection('users').get();
     const kategoriSnap = await db.collection('kategori').get();
-    
     if(kategoriSnap.empty){
       console.log('🌱 Seeding default data...');
       const kategoriList = ['Operasional','Transport','Konsumsi','ATK','Lain-lain'];
-      for(const k of kategoriList){
-        await db.collection('kategori').add({ nama: k });
-      }
+      for(const k of kategoriList) await db.collection('kategori').add({ nama: k });
       
       const tokoSnap = await db.collection('toko').get();
-      if(tokoSnap.empty){
-        await db.collection('toko').add({ nama: 'Toko Pusat' });
-      }
+      if(tokoSnap.empty) await db.collection('toko').add({ nama: 'Toko Pusat' });
       
       const modalSnap = await db.collection('modal').get();
-      if(modalSnap.empty){
-        await db.collection('modal').add({
-          tanggal: new Date().toISOString().slice(0,10),
-          jenis: 'masuk',
-          jumlah: 5000000,
-          keterangan: 'Modal Awal',
-          created_at: firebase.firestore.FieldValue.serverTimestamp()
-        });
-      }
+      if(modalSnap.empty) await db.collection('modal').add({ tanggal: new Date().toISOString().slice(0,10), jenis: 'masuk', jumlah: 5000000, keterangan: 'Modal Awal', created_at: firebase.firestore.FieldValue.serverTimestamp() });
       
-      toast('Data default berhasil dibuat','success');
+      toast('Data default dibuat','success');
     }
-  } catch(err){
-    console.error('Seed error:', err);
-  }
+  } catch(err){ console.error('Seed error:', err); }
 }
 </script>
 </body>
