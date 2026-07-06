@@ -13,10 +13,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
 
 <style>
-  /* CSS sama seperti sebelumnya */
   :root{--primary:#2563eb;--light:#f8fafc;--border:#e5e7eb;}
   *{box-sizing:border-box}
   body{background:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#1f2937;margin:0}
@@ -161,11 +159,7 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 // ============ FIREBASE CONFIG ============
-// GANTI DENGAN CONFIG DARI FIREBASE CONSOLE
 const firebaseConfig = {
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig = {
-  const firebaseConfig = {
   apiKey: "AIzaSyAurrlP-bkzVIk3fT6ZjbAaHT1DfY5a4ec",
   authDomain: "datasaya-a4a14.firebaseapp.com",
   projectId: "datasaya-a4a14",
@@ -173,13 +167,13 @@ const firebaseConfig = {
   messagingSenderId: "265322259072",
   appId: "1:265322259072:web:4bd9f807d745d8c8bf3c65"
 };
-};
 
 // Initialize Firebase
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
-const storage = firebase.storage();
+
+console.log('✅ Firebase initialized');
 
 // ============ GLOBAL ============
 let currentUser = null;
@@ -195,6 +189,7 @@ function hideLoading(){
 }
 
 function setBtnLoading(btn, loading){
+  if(!btn) return;
   if(loading){
     btn.dataset.originalText = btn.innerHTML;
     btn.classList.add('btn-loading');
@@ -222,20 +217,32 @@ function showSkeleton(count=3){
 }
 
 // ============ AUTH ============
-auth.onAuthStateChanged(user => {
+auth.onAuthStateChanged(async user => {
+  console.log('Auth state changed:', user ? user.email : 'not logged in');
   if(user){
-    // Get user data from Firestore
-    db.collection('users').doc(user.uid).get().then(doc => {
+    try {
+      const doc = await db.collection('users').doc(user.uid).get();
       if(doc.exists){
         currentUser = { uid: user.uid, ...doc.data() };
+        console.log('✅ User loaded:', currentUser);
         showApp();
       } else {
-        logout();
+        console.warn('User data not found in Firestore, creating...');
+        // Auto-create user data if missing
+        await db.collection('users').doc(user.uid).set({
+          email: user.email,
+          nama: user.email.split('@')[0],
+          role: 'admin',
+          toko: '',
+          created_at: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        currentUser = { uid: user.uid, email: user.email, nama: user.email.split('@')[0], role: 'admin', toko: '' };
+        showApp();
       }
-    }).catch(err => {
-      console.error(err);
-      toast('Gagal load data user','error');
-    });
+    } catch(err){
+      console.error('Error loading user:', err);
+      toast('Gagal load data user: '+err.message,'error');
+    }
   } else {
     document.getElementById('loginPage').style.display = 'flex';
     document.getElementById('appPage').style.display = 'none';
@@ -247,16 +254,28 @@ async function doLogin(){
   const pass = document.getElementById('loginPass').value;
   const btn = document.getElementById('btnLogin');
   
-  if(!email || !pass){ document.getElementById('loginMsg').innerText = 'Lengkapi data'; return; }
+  console.log('Login attempt:', email);
+  
+  if(!email || !pass){ 
+    document.getElementById('loginMsg').innerText = 'Lengkapi data'; 
+    return; 
+  }
   
   setBtnLoading(btn, true);
   try {
     await auth.signInWithEmailAndPassword(email, pass);
     toast('Login berhasil','success');
   } catch(err){
-    document.getElementById('loginMsg').innerText = err.message;
-    toast(err.message,'error');
-  } finally {
+    console.error('Login error:', err);
+    let msg = 'Login gagal';
+    if(err.code === 'auth/user-not-found') msg = 'Email tidak terdaftar';
+    else if(err.code === 'auth/wrong-password') msg = 'Password salah';
+    else if(err.code === 'auth/invalid-email') msg = 'Format email salah';
+    else if(err.code === 'auth/invalid-credential') msg = 'Email/password salah';
+    else msg = err.message;
+    
+    document.getElementById('loginMsg').innerText = msg;
+    toast(msg,'error');
     setBtnLoading(btn, false);
   }
 }
@@ -269,12 +288,17 @@ function logout(){
 function showApp(){
   document.getElementById('loginPage').style.display = 'none';
   document.getElementById('appPage').style.display = 'block';
-  document.getElementById('userName').innerText = currentUser.nama;
+  document.getElementById('userName').innerText = currentUser.nama || currentUser.email;
   document.getElementById('userRole').innerText = currentUser.role;
-  document.getElementById('userAvatar').innerText = currentUser.nama.charAt(0).toUpperCase();
+  document.getElementById('userAvatar').innerText = (currentUser.nama || currentUser.email).charAt(0).toUpperCase();
   document.getElementById('roleLabel').innerText = currentUser.role.toUpperCase();
   buildMenu();
   navigate(currentUser.role === 'admin' ? 'admin_dashboard' : 'staf_dashboard');
+  
+  // Seed data jika admin pertama kali login
+  if(currentUser.role === 'admin'){
+    seedDataIfEmpty();
+  }
 }
 
 function buildMenu(){
@@ -309,7 +333,7 @@ function navigate(id){
     admin_modal:renderAdminModal, admin_toko:renderAdminToko, admin_karyawan:renderAdminKaryawan,
     staf_dashboard:renderStafDashboard, staf_pengajuan:renderStafPengajuan, staf_riwayat:renderStafRiwayat
   };
-  fn[id]();
+  if(fn[id]) fn[id]();
 }
 
 // ============ STAF FUNCTIONS ============
@@ -324,7 +348,7 @@ async function renderStafDashboard(){
       if(p.status === 'approved'){ approved++; nominal += p.total; }
       recent.push({ id: doc.id, ...p });
     });
-    recent = recent.sort((a,b) => b.created_at - a.created_at).slice(0,5);
+    recent = recent.sort((a,b) => (b.created_at?.seconds||0) - (a.created_at?.seconds||0)).slice(0,5);
     
     document.getElementById('content').innerHTML = `
       <div class="stat">
@@ -342,7 +366,8 @@ async function renderStafDashboard(){
       </div>`;
   } catch(err){
     console.error(err);
-    toast('Gagal load dashboard','error');
+    toast('Gagal load dashboard: '+err.message,'error');
+    document.getElementById('content').innerHTML = '<div class="card text-danger">Error: '+err.message+'</div>';
   }
 }
 
@@ -352,7 +377,7 @@ function renderStafPengajuan(){
       <div class="row g-2 mb-3">
         <div class="col-md-4"><label class="small">Tanggal</label><input type="date" id="fTanggal" class="form-control" value="${new Date().toISOString().slice(0,10)}"></div>
         <div class="col-md-4"><label class="small">Asal Toko</label><select id="fToko" class="form-control"></select></div>
-        <div class="col-md-4"><label class="small">Nama Pengaju</label><input type="text" id="fNama" class="form-control" value="${currentUser.nama}"></div>
+        <div class="col-md-4"><label class="small">Nama Pengaju</label><input type="text" id="fNama" class="form-control" value="${currentUser.nama || currentUser.email}"></div>
       </div>
       <h6>Item Pengajuan</h6>
       <div id="itemsList"></div>
@@ -386,47 +411,28 @@ function addItemRow(){
       <div class="col-md-2"><label class="small">Foto Bon</label><input type="file" accept="image/*" class="form-control form-item" data-f="foto" onchange="previewFoto(this,${id})"></div>
     </div>
     <div id="preview-${id}" class="mt-2"></div>
-    <div id="progress-${id}" class="progress mt-2" style="display:none"><div class="progress-bar progress-bar-striped progress-bar-animated" style="width:0%"></div></div>
     <button class="btn btn-sm btn-outline mt-2 text-danger" onclick="document.getElementById('item-${id}').remove();calcTotal()"><i class="bi bi-trash"></i> Hapus</button>`;
   document.getElementById('itemsList').appendChild(div);
   fillKategoriSelect(div.querySelector('.sel-kategori'));
 }
 
-async function previewFoto(inp, id){
+function previewFoto(inp, id){
   const f = inp.files[0];
   if(!f) return;
-  if(f.size > 2*1024*1024){ toast('Ukuran foto maks 2MB','error'); inp.value=''; return; }
-  
-  const progressEl = document.getElementById('progress-'+id);
-  const progressBar = progressEl.querySelector('.progress-bar');
-  progressEl.style.display = 'block';
-  
-  try {
-    // Upload to Firebase Storage
-    const ref = storage.ref(`bon/${currentUser.uid}/${Date.now()}_${f.name}`);
-    const task = ref.put(f);
-    
-    task.on('state_changed', 
-      snapshot => {
-        const percent = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-        progressBar.style.width = percent + '%';
-      },
-      error => {
-        toast('Upload gagal: '+error.message,'error');
-        progressEl.style.display = 'none';
-      },
-      async () => {
-        const url = await task.snapshot.ref.getDownloadURL();
-        inp.dataset.url = url;
-        document.getElementById('preview-'+id).innerHTML = `<img src="${url}" class="photo-preview">`;
-        progressEl.style.display = 'none';
-        toast('Foto berhasil diupload','success');
-      }
-    );
-  } catch(err){
-    toast('Upload error: '+err.message,'error');
-    progressEl.style.display = 'none';
+  if(f.size > 500*1024){ 
+    toast('Ukuran foto maks 500KB','error'); 
+    inp.value=''; 
+    return; 
   }
+  
+  const reader = new FileReader();
+  reader.onload = function(e){
+    const base64 = e.target.result;
+    inp.dataset.base64 = base64;
+    document.getElementById('preview-'+id).innerHTML = `<img src="${base64}" class="photo-preview">`;
+    toast('Foto dimuat','success');
+  };
+  reader.readAsDataURL(f);
 }
 
 function calcTotal(){
@@ -440,13 +446,12 @@ function calcTotal(){
 
 async function submitPengajuan(btn){
   const items = [];
-  let valid = true;
   
   document.querySelectorAll('.item-row').forEach(r => {
     const nama = r.querySelector('[data-f="nama"]').value;
     const kategori = r.querySelector('[data-f="kategori"]').value;
     const nominal = parseFloat(r.querySelector('[data-f="nominal"]').value) || 0;
-    const foto = r.querySelector('[data-f="foto"]').dataset.url || '';
+    const foto = r.querySelector('[data-f="foto"]').dataset.base64 || '';
     if(nama) items.push({ nama_barang: nama, kategori, nominal, foto });
   });
   
@@ -457,9 +462,9 @@ async function submitPengajuan(btn){
   
   setBtnLoading(btn, true);
   try {
-    const docRef = await db.collection('pengajuan').add({
+    await db.collection('pengajuan').add({
       user_id: currentUser.uid,
-      nama_pengaju: currentUser.nama,
+      nama_pengaju: currentUser.nama || currentUser.email,
       toko: document.getElementById('fToko').value,
       tanggal: document.getElementById('fTanggal').value,
       items: items,
@@ -503,7 +508,7 @@ async function renderStafRiwayat(){
     filterRiwayat();
   } catch(err){
     console.error(err);
-    toast('Gagal load riwayat','error');
+    toast('Gagal load riwayat: '+err.message,'error');
   }
 }
 
@@ -550,13 +555,13 @@ async function viewPengajuan(id){
         <p><b>Tanggal:</b> ${p.tanggal} | <b>Toko:</b> ${p.toko} | <b>Pengaju:</b> ${p.nama_pengaju}</p>
         <p><b>Status:</b> <span class="badge-status badge-${p.status}">${p.status}</span></p>
         <table class="table"><thead><tr><th>Barang</th><th>Kategori</th><th>Nominal</th><th>Foto</th></tr></thead>
-        <tbody>${p.items.map(i => `<tr><td>${i.nama_barang}</td><td>${i.kategori}</td><td>Rp ${fmt(i.nominal)}</td><td>${i.foto ? `<a href="${i.foto}" target="_blank">Lihat</a>` : '-'}</td></tr>`).join('')}</tbody></table>
+        <tbody>${p.items.map(i => `<tr><td>${i.nama_barang}</td><td>${i.kategori}</td><td>Rp ${fmt(i.nominal)}</td><td>${i.foto ? `<img src="${i.foto}" class="photo-preview">` : '-'}</td></tr>`).join('')}</tbody></table>
         <h5>Total: Rp ${fmt(p.total)}</h5>
         ${p.catatan_admin ? `<div class="alert alert-info mt-2"><b>Catatan Admin:</b> ${p.catatan_admin}</div>` : ''}
       </div>`;
     new bootstrap.Modal(document.getElementById('modal')).show();
   } catch(err){
-    toast('Gagal load detail','error');
+    toast('Gagal load detail: '+err.message,'error');
   } finally {
     hideLoading();
   }
@@ -604,7 +609,7 @@ async function renderAdminDashboard(){
   try {
     const pengajuanSnap = await db.collection('pengajuan').get();
     const usersSnap = await db.collection('users').get();
-    const modalSnap = await db.collection('modal').orderBy('tanggal','desc').get();
+    const modalSnap = await db.collection('modal').get();
     
     let pending = 0, approved = 0;
     let pendingList = [];
@@ -613,7 +618,7 @@ async function renderAdminDashboard(){
       if(p.status === 'pending'){ pending++; pendingList.push({ id: doc.id, ...p }); }
       if(p.status === 'approved') approved++;
     });
-    pendingList = pendingList.sort((a,b) => b.created_at - a.created_at).slice(0,5);
+    pendingList = pendingList.sort((a,b) => (b.created_at?.seconds||0) - (a.created_at?.seconds||0)).slice(0,5);
     
     let modal = 0;
     modalSnap.forEach(doc => {
@@ -637,7 +642,7 @@ async function renderAdminDashboard(){
       </div>`;
   } catch(err){
     console.error(err);
-    toast('Gagal load dashboard','error');
+    toast('Gagal load dashboard: '+err.message,'error');
   }
 }
 
@@ -661,7 +666,7 @@ async function renderAdminPengajuan(){
     filterAdmin();
   } catch(err){
     console.error(err);
-    toast('Gagal load pengajuan','error');
+    toast('Gagal load pengajuan: '+err.message,'error');
   }
 }
 
@@ -705,7 +710,6 @@ async function approvePengajuan(id, btn){
       catatan_admin: catatan
     });
     
-    // Kurangi modal
     await db.collection('modal').add({
       tanggal: new Date().toISOString().slice(0,10),
       jenis: 'keluar',
@@ -764,7 +768,7 @@ async function renderAdminKategori(){
         </table></div>
       </div>`;
   } catch(err){
-    toast('Gagal load kategori','error');
+    toast('Gagal load kategori: '+err.message,'error');
   }
 }
 
@@ -827,13 +831,14 @@ async function delKategori(id){
 async function renderAdminModal(){
   document.getElementById('content').innerHTML = showSkeleton(3);
   try {
-    const snapshot = await db.collection('modal').orderBy('tanggal','desc').get();
+    const snapshot = await db.collection('modal').get();
     let data = [], total = 0;
     snapshot.forEach(doc => {
       const m = doc.data();
       data.push({ id: doc.id, ...m });
       total += m.jenis === 'masuk' ? m.jumlah : -m.jumlah;
     });
+    data.sort((a,b) => (b.tanggal||'').localeCompare(a.tanggal||''));
     
     document.getElementById('content').innerHTML = `
       <div class="stat"><div class="stat-item"><small>Saldo Modal</small><h4>Rp ${fmt(total)}</h4></div></div>
@@ -848,7 +853,7 @@ async function renderAdminModal(){
         </table></div>
       </div>`;
   } catch(err){
-    toast('Gagal load modal','error');
+    toast('Gagal load modal: '+err.message,'error');
   }
 }
 
@@ -908,7 +913,7 @@ async function renderAdminToko(){
         </table></div>
       </div>`;
   } catch(err){
-    toast('Gagal load toko','error');
+    toast('Gagal load toko: '+err.message,'error');
   }
 }
 
@@ -984,7 +989,7 @@ async function renderAdminKaryawan(){
         </table></div>
       </div>`;
   } catch(err){
-    toast('Gagal load user','error');
+    toast('Gagal load user: '+err.message,'error');
   }
 }
 
@@ -1014,7 +1019,7 @@ async function formUser(u={}){
     new bootstrap.Modal(document.getElementById('modal')).show();
     setTimeout(() => document.getElementById('uEmail').focus(), 300);
   } catch(err){
-    toast('Gagal load data','error');
+    toast('Gagal load data: '+err.message,'error');
   } finally {
     hideLoading();
   }
@@ -1031,17 +1036,10 @@ async function saveUser(id, btn){
   setBtnLoading(btn, true);
   try {
     if(id){
-      // Update existing
       const updates = { email, nama, role: document.getElementById('uRole').value, toko: document.getElementById('uToko').value };
       await db.collection('users').doc(id).update(updates);
-      if(pass){
-        // Update password di Auth (perlu re-authentication, skip untuk simplicity)
-        toast('User updated (password tidak diubah)','success');
-      } else {
-        toast('User diupdate','success');
-      }
+      toast('User diupdate','success');
     } else {
-      // Create new
       const cred = await auth.createUserWithEmailAndPassword(email, pass);
       await db.collection('users').doc(cred.user.uid).set({
         email,
@@ -1067,8 +1065,7 @@ async function delUser(id){
   showLoading('Menghapus...');
   try {
     await db.collection('users').doc(id).delete();
-    // Note: Auth user tidak terhapus otomatis, perlu Firebase Admin SDK
-    toast('User dihapus (dari database)','success');
+    toast('User dihapus','success');
     renderAdminKaryawan();
   } catch(err){
     toast('Gagal hapus: '+err.message,'error');
@@ -1102,47 +1099,41 @@ function fillKategoriSelect(sel){
     (cacheData.kategori||[]).map(k => `<option>${k.nama}</option>`).join('');
 }
 
-// ============ INIT FIREBASE ============
-// Seed data awal jika kosong
-async function seedData(){
-  const usersSnap = await db.collection('users').get();
-  if(usersSnap.empty){
-    // Create default admin
-    const cred = await auth.createUserWithEmailAndPassword('admin@pettycash.com', 'admin123');
-    await db.collection('users').doc(cred.user.uid).set({
-      email: 'admin@pettycash.com',
-      nama: 'Administrator',
-      role: 'admin',
-      toko: '',
-      created_at: firebase.firestore.FieldValue.serverTimestamp()
-    });
+// ============ SEED DATA ============
+async function seedDataIfEmpty(){
+  try {
+    const usersSnap = await db.collection('users').get();
+    const kategoriSnap = await db.collection('kategori').get();
     
-    // Seed kategori
-    const kategoriList = ['Operasional','Transport','Konsumsi','ATK','Lain-lain'];
-    kategoriList.forEach(k => db.collection('kategori').add({ nama: k }));
-    
-    // Seed toko
-    await db.collection('toko').add({ nama: 'Toko Pusat' });
-    
-    // Seed modal awal
-    await db.collection('modal').add({
-      tanggal: new Date().toISOString().slice(0,10),
-      jenis: 'masuk',
-      jumlah: 5000000,
-      keterangan: 'Modal Awal',
-      created_at: firebase.firestore.FieldValue.serverTimestamp()
-    });
-    
-    toast('Data awal berhasil dibuat','success');
+    if(kategoriSnap.empty){
+      console.log('🌱 Seeding default data...');
+      const kategoriList = ['Operasional','Transport','Konsumsi','ATK','Lain-lain'];
+      for(const k of kategoriList){
+        await db.collection('kategori').add({ nama: k });
+      }
+      
+      const tokoSnap = await db.collection('toko').get();
+      if(tokoSnap.empty){
+        await db.collection('toko').add({ nama: 'Toko Pusat' });
+      }
+      
+      const modalSnap = await db.collection('modal').get();
+      if(modalSnap.empty){
+        await db.collection('modal').add({
+          tanggal: new Date().toISOString().slice(0,10),
+          jenis: 'masuk',
+          jumlah: 5000000,
+          keterangan: 'Modal Awal',
+          created_at: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      }
+      
+      toast('Data default berhasil dibuat','success');
+    }
+  } catch(err){
+    console.error('Seed error:', err);
   }
 }
-
-// Jalankan seed setelah Firebase ready
-setTimeout(() => {
-  if(auth.currentUser && auth.currentUser.email === 'admin@pettycash.com'){
-    seedData();
-  }
-}, 2000);
 </script>
 </body>
 </html>
